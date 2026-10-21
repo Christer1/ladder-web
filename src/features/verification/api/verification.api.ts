@@ -73,9 +73,11 @@ export async function uploadGovernmentId(
 
 export async function submitLiveness({
   selfie,
+  challenges,
 }: SubmitLivenessRequest): Promise<SubmitLivenessResponse> {
   const body = new FormData();
   body.append('selfie', selfie, 'selfie.jpg');
+  body.append('challenges', JSON.stringify(challenges));
 
   const res = await apiClient.post<ApiSuccess<SubmitLivenessResponse>>(
     ENDPOINTS.verification.liveness,

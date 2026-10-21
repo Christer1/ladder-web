@@ -41,6 +41,8 @@ export type UploadGovernmentIdRequest = {
 
 export type SubmitLivenessRequest = {
   selfie: Blob;
+  /** The random on-device challenges the user completed, in order (for the backend's audit trail). */
+  challenges: readonly string[];
 };
 
 export type SubmitLivenessResponse = {

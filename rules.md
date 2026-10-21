@@ -37,6 +37,17 @@ Ladder Web is a **responsive web application** (not a mobile app) where a user c
 - Client-side rule: a real past date, year ≥ 1900, user at least 18 (`MIN_AGE`, confirm with product). The backend enforces the same (`UNDERAGE`).
 - The card uses a calendar icon instead of the person icon; it follows the same card states as the others (no separate design).
 
+**Liveness check (2026-10-21).** After **Verify Face** and camera permission, the check runs fully on-device with MediaPipe Face Landmarker (`@mediapipe/tasks-vision`, loaded only on `/liveness`):
+1. **Lighting and framing first.** Average frame brightness is sampled ~4×/s: below 60 → "It's too dark…", above 205 (0–255 luma) → "Too much light…". Also: no face, more than one face, too far, too close, off-centre. Problems are shown after 400 ms (no flicker), pause the check and don't count towards the timeout.
+2. **Look straight** (neutral face held 400 ms) to start.
+3. **Random challenges:** 3 of blink / smile / turn head left / turn head right, in random order, new set on every attempt. "Left/right" is the user's own left/right (the preview is mirrored, so it matches what they see). Each needs a short hold (350 ms); a blink must close and re-open within 1.5 s.
+4. **Look straight again** between challenges and at the end, so one movement can't satisfy two instructions and the captured selfie is front-facing.
+5. A **progress ring** around the oval fills clockwise from the top as challenges complete, turning green at the end. It is a `role="progressbar"` with "Step x of n".
+6. Each challenge has 12 s of active time; otherwise the attempt fails with "Try again" and new instructions.
+7. One JPEG frame + the list of completed challenges are uploaded. No other frames leave the device.
+
+All thresholds live in `LIVENESS_THRESHOLDS` (`features/verification/utils/liveness.ts`). That file is pure and must stay testable without a camera. **This is a UX gate, not the security decision:** on-device checks can be spoofed, so the backend / provider must verify the selfie.
+
 ### Out of scope for now
 - Login for returning users (no design yet; signup now sets a password, so login will be email + password)
 - Profile screen design (only a minimal placeholder exists)
@@ -45,12 +56,14 @@ Ladder Web is a **responsive web application** (not a mobile app) where a user c
 ### Open questions (resolve before building the affected screen)
 1. Is one credential (e.g. BVN only) enough to continue, or are several required? **Built as:** date of birth + any one of BVN, NIN or Government ID enables Continue (matches the design).
 2. Is Government ID an alternative to BVN/NIN or an extra step? Which ID types go in the "Select ID" dropdown? **Built as:** an alternative; the card opens a panel with an "Upload ID" button to `/upload-id`, and after upload the flow goes straight to `/liveness`. Placeholder ID types: National ID Card, International Passport, Driver’s Licence, Voter’s Card (`GOVERNMENT_ID_OPTIONS`).
-3. Liveness: which provider/SDK (e.g. Smile ID, Youverify, Dojah), and what instructions are shown? **Built as:** a provider-neutral placeholder: Verify Face → camera → "Centre your face" → 3-second "Hold still" countdown → one JPEG frame uploaded as `selfie`. Swap the capture step for the SDK; the screen states stay.
+3. Liveness: which provider/SDK (e.g. Smile ID, Youverify, Dojah) makes the final decision? **Built as:** an on-device active check (see **Liveness check** below) followed by one front-facing JPEG uploaded as `selfie`. A provider SDK can replace the capture/upload step; keep the on-device guidance or use the provider's own.
 4. Error states (wrong OTP, BVN mismatch, failed liveness, upload rejected) are not designed. **Built as:** red border + red message under the affected field, `Try again` for camera/liveness failures.
 5. ~~Copy fix: the NIN card says "Bank National Identification Number".~~ Done: the app says "National Identification Number".
 6. ~~Where is date of birth collected now?~~ Resolved: it is the first credential on `/credentials` (see above).
 7. Upload ID design shows "National ID Card" pre-filled in grey. Built as an empty select with the placeholder "Select your ID type" so the user must choose. Confirm with design.
-8. The camera-active liveness design shows no button. Built with a secondary **Cancel** button while the camera runs, so users are never stuck. Confirm with design.
+8. The camera-active liveness design shows no button and no progress ring. Built with a secondary **Cancel** button and a progress ring around the oval (product request, 2026-10-21). Confirm with design.
+9. The face model (~3.6 MB) and MediaPipe WASM (~13 MB) load from public CDNs (jsDelivr, Google Storage), pinned in `src/config/liveness.ts`. Self-host them (e.g. under `public/`) before production for availability, privacy and CSP.
+10. Accessibility: users who can't blink, smile or turn their head on request need another route (assisted or manual review). Not designed yet.
 
 ## 3. Tech stack
 
@@ -63,6 +76,7 @@ Ladder Web is a **responsive web application** (not a mobile app) where a user c
 | Server state | TanStack Query |
 | Client/flow state | Zustand |
 | API mocking | MSW |
+| On-device face check | `@mediapipe/tasks-vision` (Face Landmarker), pinned; WASM version in `config/liveness.ts` must match |
 | Lint/format | ESLint (next config) + Prettier |
 | Package manager | pnpm |
 
@@ -88,7 +102,7 @@ src/
 │       ├── components/  feature UI (may use hooks, ui components, store)
 │       ├── schemas/     Zod schemas for forms and payloads
 │       ├── types/       request/response types
-│       ├── utils/       pure, feature-specific helpers (e.g. verification/utils/progress.ts: next step, route access)
+│       ├── utils/       pure, feature-specific helpers (e.g. verification/utils/progress.ts: next step, route access; verification/utils/liveness.ts: liveness session)
 │       └── index.ts     public exports; other code imports from here only
 ├── components/
 │   ├── ui/          Generic building blocks (Button, Input, …). Presentational only.
@@ -97,7 +111,7 @@ src/
 │   ├── api/         client.ts, endpoints.ts, errors.ts, query-client.ts
 │   └── utils/       pure helpers
 ├── store/           Zustand stores
-├── config/          env.ts (validated env), routes.ts (route constants + step order)
+├── config/          env.ts (validated env), routes.ts (route constants + step order), liveness.ts (face model / WASM URLs)
 ├── mocks/           MSW handlers mirroring the backend contract; db.ts holds mock state; handlers/http.ts the envelope helpers
 ├── types/           cross-feature types (API envelope)
 └── styles/          globals.css + tokens
@@ -202,7 +216,7 @@ export const ENDPOINTS = {
 | POST | `/verification/bvn` | `{ bvn }` | `{ status }`; `DOB_MISMATCH` if the record's date of birth differs |
 | POST | `/verification/nin` | `{ nin }` | `{ status }`; `DOB_MISMATCH` as above |
 | POST | `/verification/government-id` | `multipart/form-data`: `idType`, `file` | `{ status }` |
-| POST | `/verification/liveness` | `multipart/form-data`: `selfie` (or provider token) | `{ status, ladderId? }` |
+| POST | `/verification/liveness` | `multipart/form-data`: `selfie` (JPEG), `challenges` (JSON array, e.g. `["smile","turnLeft","blink"]`) (or provider token) | `{ status, ladderId? }` |
 | GET | `/verification/status` | — | `{ dateOfBirth, bvn, nin, governmentId, liveness, ladderId }`. Each step is `'not_started' \| 'pending' \| 'verified' \| 'failed'` |
 | GET | `/profile/me` | — | `UserProfile`: `{ email, ladderId, verifiedItems }` |
 
@@ -318,6 +332,7 @@ This app handles identity data. These rules are non-negotiable:
 - Password and PIN inputs use `type="password"` and `autoComplete="new-password"`. The password show/hide toggle is a real `<button>` with `aria-pressed` and a "Show password" / "Hide password" label.
 - The password is sent only in the signup request body. It is never put in the Zustand store, the URL, query keys or error messages; only the email moves on to the OTP screen.
 - Camera access is requested only on `/liveness`, only after the user presses **Verify Face**, and the stream is stopped right after capture, on cancel, on error and on unmount (`useCamera`). Only the one captured frame leaves the device.
+- Face analysis runs in the browser on the live video; frames are not stored or sent. Only the final selfie is uploaded. Never log landmark data or blendshape scores.
 - All env vars exposed to the browser are prefixed `NEXT_PUBLIC_` and contain no secrets.
 
 ## 13. Accessibility
@@ -326,7 +341,7 @@ This app handles identity data. These rules are non-negotiable:
 - OTP boxes support paste of the full code and keyboard navigation.
 - Credential cards are buttons with `aria-expanded` / `aria-controls`; locked and verified cards are disabled buttons with the reason in their text. Status changes (verifying/verified) are announced via `aria-live`.
 - The upload checklist: format and size are read-only indicators that tick themselves (with "met / not met yet" for screen readers); "Valid government issued ID" is a real checkbox the user must tick.
-- Liveness instructions and the countdown are announced via `aria-live`; camera errors use `role="alert"`.
+- Liveness instructions, lighting/framing guidance and step changes are announced via `aria-live` (only when the text changes, not every frame); camera and check errors use `role="alert"`. The progress ring is a `progressbar` with `aria-valuetext` "Step x of n".
 - Colour contrast ≥ WCAG AA; the disabled button style is the only exception.
 - Visible focus ring on all interactive elements.
 
