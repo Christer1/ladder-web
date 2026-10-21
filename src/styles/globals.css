@@ -1,1 +1,69 @@
 /* Tailwind layers + design tokens (colors, radii, spacing) taken from ladder-screens. */
+@import 'tailwindcss';
+
+/*
+ * Values sampled from ../ladder-screens. Where a sampled text colour failed
+ * WCAG AA on its background (rules.md §13), the token is the nearest darker
+ * shade that passes; the sampled value is noted beside it.
+ */
+@theme {
+  --font-sans: var(--font-roboto), ui-sans-serif, system-ui, sans-serif;
+
+  /* Brand */
+  --color-brand-950: #173d3d; /* credential card icon circle */
+  --color-brand-900: #1e3c47; /* headings, primary button */
+  --color-brand-600: #367d6b; /* green text/links (sampled #4ea38d = 3.0:1 on white) */
+  --color-brand-550: #428d7c; /* Verified badge, logo body */
+  --color-brand-500: #4ea38d; /* active OTP border, icons */
+  --color-mint-100: #c9f5e8; /* logo highlight */
+  --color-mint-300: #9bebd3; /* Welcome CTA, logo accent, headline accent */
+  --color-mint-400: #85dfc5; /* Welcome CTA hover */
+
+  /* Welcome screen gradient + copy on dark */
+  --color-surface-brand-top: #225350;
+  --color-surface-brand-bottom: #112f32;
+  --color-text-on-brand: #d8e8e4;
+
+  /* Surfaces */
+  --color-surface: #ffffff;
+  --color-surface-success: #f4fffa; /* Verified background */
+  --color-surface-mint: #eaf8f4; /* Ladder ID card */
+  --color-surface-subtle: #f8fafc; /* upload dropzone */
+  --color-face-placeholder: #d9d9d9; /* liveness frame before the camera starts */
+  --color-canvas: #e9eff2; /* page behind the card on tablet/desktop */
+
+  /* Text */
+  --color-text-muted: #64788a; /* subtitles (sampled #738696 = 3.8:1 on white) */
+  --color-text-body: #1a1a1a;
+  --color-success: #377e22; /* verified check on credential cards */
+  --color-danger: #c0392b; /* error states are not designed yet (rules.md §2 Q4) */
+
+  /* Borders and disabled button */
+  --color-border: #d9e3ea;
+  --color-disabled-bg: #cedce4;
+  --color-disabled-text: #8fa5b2;
+
+  /* Radii */
+  --radius-input: 10px;
+  --radius-otp: 8px;
+  --radius-cta: 12px; /* Welcome "Get started" */
+  --radius-tile: 12px; /* credential cards, dropzone */
+  --radius-panel: 16px; /* Ladder ID card */
+  --radius-card: 28px; /* ScreenShell frame on tablet/desktop */
+  --radius-pill: 9999px; /* Continue buttons */
+}
+
+@layer base {
+  html {
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  body {
+    @apply bg-canvas font-sans text-text-body antialiased;
+  }
+
+  /* Visible focus ring on all interactive elements (rules.md §13). */
+  :where(a, button, input, select, textarea, [tabindex]):focus-visible {
+    @apply outline-2 outline-offset-2 outline-brand-500;
+  }
+}
