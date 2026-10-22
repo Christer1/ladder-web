@@ -1,6 +1,5 @@
-// Combines all handlers.
-import { authHandlers } from './auth.handlers';
-import { profileHandlers } from './profile.handlers';
-import { verificationHandlers } from './verification.handlers';
+// Combines all handlers. ladder-backend serves every endpoint now, so nothing is mocked; add a
+// handler here only for an endpoint the backend does not have yet (rules.md §11).
+import type { RequestHandler } from 'msw';
 
-export const handlers = [...authHandlers, ...verificationHandlers, ...profileHandlers];
+export const handlers: RequestHandler[] = [];

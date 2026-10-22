@@ -59,6 +59,12 @@ export function WelcomeHero() {
           <Link href={ROUTES.SIGNUP} className={buttonClasses('mint', 'lg:w-auto lg:min-w-60')}>
             Get started
           </Link>
+          <p className="mt-4 text-center text-[15px] leading-6 text-text-on-brand lg:text-left">
+            Already have an account?{' '}
+            <Link href={ROUTES.LOGIN} className="font-semibold text-mint-300 hover:underline">
+              Log in
+            </Link>
+          </p>
         </div>
       </div>
     </div>

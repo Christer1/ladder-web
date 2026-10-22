@@ -1,4 +1,4 @@
-// useMutation wrapper around auth.api.login. No login screen yet (rules.md §2, out of scope).
+// useMutation wrapper around auth.api.login (email + password sign-in).
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import type { ApiError } from '@/lib/api/errors';
 import { login } from '../api/auth.api';
@@ -10,6 +10,6 @@ export function useLogin() {
   return useMutation<LoginResponse, ApiError, LoginRequest>({
     mutationFn: login,
     // A new session exists now: anything cached for a previous one is stale.
-    onSuccess: () => queryClient.invalidateQueries(),
+    onSuccess: () => queryClient.clear(),
   });
 }

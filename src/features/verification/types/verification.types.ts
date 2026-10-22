@@ -6,15 +6,18 @@ export type VerificationStepStatus = 'NOT_STARTED' | 'PENDING' | 'VERIFIED' | 'F
 /** Credentials on the /credentials screen, in display order. Date of birth always comes first. */
 export type CredentialKind = 'dateOfBirth' | 'bvn' | 'nin' | 'governmentId';
 
+/** Onboarding pages the backend remembers, so sign-in can return the user to the one they left. */
+export type OnboardingPageStep = 'CREDENTIALS' | 'UPLOAD_ID' | 'LIVENESS';
+
 export type VerificationStatus = {
   bvn: VerificationStepStatus;
   nin: VerificationStepStatus;
-  /** Issued by the first verified BVN or NIN. */
+  /** Issued by the first verified BVN or NIN, or at liveness for a Government ID. */
   ladderId: string | null;
-  /** Not served by ladder-backend yet; added by the MSW mocks (rules.md §11). */
-  governmentId?: VerificationStepStatus;
-  /** Not served by ladder-backend yet; added by the MSW mocks (rules.md §11). */
-  liveness?: VerificationStepStatus;
+  governmentId: VerificationStepStatus;
+  liveness: VerificationStepStatus;
+  /** The onboarding page the user was last on; null until they open one. */
+  lastStep: OnboardingPageStep | null;
 };
 
 export type VerificationResultResponse = {

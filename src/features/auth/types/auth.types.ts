@@ -3,6 +3,8 @@
 export type SignupRequest = {
   email: string;
   password: string;
+  /** Checked against `password` by the backend too (PASSWORD_MISMATCH). */
+  confirmPassword: string;
 };
 
 /** Returned by signup and resend. */
@@ -36,13 +38,6 @@ export type LoginRequest = {
 
 /** Sets the session cookie, like OTP verify. */
 export type LoginResponse = Record<string, never>;
-
-export type CreatePinRequest = {
-  pin: string;
-  confirmPin: string;
-};
-
-export type CreatePinResponse = Record<string, never>;
 
 /** Clears the session cookie. */
 export type LogoutResponse = Record<string, never>;

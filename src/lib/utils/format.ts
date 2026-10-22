@@ -20,3 +20,12 @@ export function formatFileSize(bytes: number): string {
   if (bytes >= 1024) return `${Math.round(bytes / 1024)} KB`;
   return `${bytes} B`;
 }
+
+/** "adaeze@example.com" → "ad••••@example.com". A fixed 4 dots, so the length is not revealed. */
+export function maskEmail(email: string): string {
+  const at = email.lastIndexOf('@');
+  if (at <= 0) return email;
+  const local = email.slice(0, at);
+  const visible = local.length > 2 ? local.slice(0, 2) : local.slice(0, 1);
+  return `${visible}••••${email.slice(at)}`;
+}

@@ -3,7 +3,7 @@ import type { VerificationStepStatus } from '@/features/verification';
 
 export type UserStatus = 'PENDING' | 'VERIFIED' | 'SUSPENDED';
 
-export type VerificationType = 'BVN' | 'NIN';
+export type VerificationType = 'BVN' | 'NIN' | 'GOVERNMENT_ID' | 'LIVENESS';
 
 export type VerificationSummary = {
   type: VerificationType;
