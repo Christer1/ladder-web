@@ -1,33 +1,32 @@
-// In-memory "backend" state shared by the MSW handlers.
-// Mirrored to sessionStorage so a page reload keeps your progress while developing.
-// Only statuses, the email and the Ladder ID are kept: never PIN, DOB, BVN, NIN, files or selfies (rules.md §12).
-import type { VerificationStatus } from '@/features/verification/types/verification.types';
+// State for the steps ladder-backend does not serve yet (Government ID, liveness).
+// Everything else comes from the real backend. Mirrored to sessionStorage so a page reload keeps
+// your progress while developing. Only statuses and a fallback Ladder ID are kept: never files or
+// selfies (rules.md §12).
+import type { VerificationStepStatus } from '@/features/verification/types/verification.types';
 
 type MockDb = {
-  email: string | null;
-  hasSession: boolean;
-  status: VerificationStatus;
+  governmentId: VerificationStepStatus;
+  liveness: VerificationStepStatus;
+  /** Used only when the backend has not issued one (a Government ID instead of BVN/NIN). */
+  ladderId: string | null;
 };
 
 const STORAGE_KEY = 'ladder-mock-db';
 
-const emptyStatus = (): VerificationStatus => ({
-  dateOfBirth: 'not_started',
-  bvn: 'not_started',
-  nin: 'not_started',
-  governmentId: 'not_started',
-  liveness: 'not_started',
+const emptyDb = (): MockDb => ({
+  governmentId: 'NOT_STARTED',
+  liveness: 'NOT_STARTED',
   ladderId: null,
 });
 
 function load(): MockDb {
   try {
     const raw = sessionStorage.getItem(STORAGE_KEY);
-    if (raw) return JSON.parse(raw) as MockDb;
+    if (raw) return { ...emptyDb(), ...(JSON.parse(raw) as Partial<MockDb>) };
   } catch {
     // Storage blocked or corrupt: start fresh.
   }
-  return { email: null, hasSession: false, status: emptyStatus() };
+  return emptyDb();
 }
 
 let db: MockDb = load();
@@ -42,16 +41,13 @@ function save() {
 
 export const mockDb = {
   get: (): Readonly<MockDb> => db,
-  startSignup(email: string) {
-    db = { email, hasSession: false, status: emptyStatus() };
+  /** A new account or session: forget the previous one's mocked steps. */
+  reset() {
+    db = emptyDb();
     save();
   },
-  startSession() {
-    db = { ...db, hasSession: true };
-    save();
-  },
-  updateStatus(patch: Partial<VerificationStatus>) {
-    db = { ...db, status: { ...db.status, ...patch } };
+  update(patch: Partial<MockDb>) {
+    db = { ...db, ...patch };
     save();
   },
 };

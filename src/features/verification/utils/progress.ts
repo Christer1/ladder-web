@@ -3,30 +3,29 @@
 import { ROUTES, type Route } from '@/config/routes';
 import type { VerificationStatus } from '../types/verification.types';
 
-/** Date of birth is verified first; BVN/NIN lookups are matched against it. */
-export function isDateOfBirthVerified(status: VerificationStatus): boolean {
-  return status.dateOfBirth === 'verified';
+/** The backend saves the date of birth with the first verified BVN or NIN. */
+export function hasVerifiedIdNumber(status: VerificationStatus): boolean {
+  return status.bvn === 'VERIFIED' || status.nin === 'VERIFIED';
 }
 
 /**
  * One identity credential is enough to continue (matches the design, rules.md §2 open question 1).
- * A Government ID may still be under manual review ('pending') and still counts.
+ * A Government ID may still be under manual review ('PENDING') and still counts.
  */
 export function hasIdentityCredential(status: VerificationStatus): boolean {
   return (
-    status.bvn === 'verified' ||
-    status.nin === 'verified' ||
-    status.governmentId === 'verified' ||
-    status.governmentId === 'pending'
+    hasVerifiedIdNumber(status) ||
+    status.governmentId === 'VERIFIED' ||
+    status.governmentId === 'PENDING'
   );
 }
 
 export function canLeaveCredentials(status: VerificationStatus): boolean {
-  return isDateOfBirthVerified(status) && hasIdentityCredential(status);
+  return hasIdentityCredential(status);
 }
 
 export function isFullyVerified(status: VerificationStatus): boolean {
-  return status.liveness === 'verified' && Boolean(status.ladderId);
+  return status.liveness === 'VERIFIED' && Boolean(status.ladderId);
 }
 
 /** The first step the user still has to complete. */
@@ -40,9 +39,8 @@ export function getNextVerificationRoute(status: VerificationStatus): Route {
 export function isRouteAllowed(pathname: string, status: VerificationStatus): boolean {
   switch (pathname) {
     case ROUTES.CREDENTIALS:
-      return true;
     case ROUTES.UPLOAD_ID:
-      return isDateOfBirthVerified(status);
+      return true;
     case ROUTES.LIVENESS:
       return canLeaveCredentials(status);
     case ROUTES.VERIFIED:

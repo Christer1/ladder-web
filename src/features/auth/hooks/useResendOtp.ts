@@ -5,7 +5,7 @@ import type { ApiError } from '@/lib/api/errors';
 import { resendOtp } from '../api/auth.api';
 import type { ResendOtpRequest, ResendOtpResponse } from '../types/auth.types';
 
-/** Used when signup did not tell us how long the code lasts (matches the 00:45 in the design). */
+/** Used when signup did not say when a new code can be sent (matches the 00:45 in the design). */
 export const DEFAULT_OTP_COUNTDOWN_SECONDS = 45;
 
 export function useResendOtp(initialSeconds: number = DEFAULT_OTP_COUNTDOWN_SECONDS) {
@@ -22,7 +22,7 @@ export function useResendOtp(initialSeconds: number = DEFAULT_OTP_COUNTDOWN_SECO
 
   const mutation = useMutation<ResendOtpResponse, ApiError, ResendOtpRequest>({
     mutationFn: resendOtp,
-    onSuccess: ({ otpExpiresIn }) => setDeadline(Date.now() + otpExpiresIn * 1000),
+    onSuccess: ({ resendAvailableIn }) => setDeadline(Date.now() + resendAvailableIn * 1000),
   });
 
   return {

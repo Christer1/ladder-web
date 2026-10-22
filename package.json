@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "@hookform/resolvers": "^5",
+    "@mediapipe/tasks-vision": "1.1.0",
     "@tanstack/react-query": "^5",
     "axios": "^1",
     "clsx": "^2",
@@ -37,6 +38,8 @@
   },
   "packageManager": "pnpm@10.34.7",
   "msw": {
-    "workerDirectory": ["public"]
+    "workerDirectory": [
+      "public"
+    ]
   }
 }

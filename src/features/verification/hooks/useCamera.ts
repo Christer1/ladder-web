@@ -1,8 +1,18 @@
-// getUserMedia lifecycle for the liveness camera (start, stop, capture frame).
+// getUserMedia lifecycle for the liveness and ID cameras (start, stop, capture frame).
 // The stream is always stopped on unmount (rules.md §12).
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 export type CameraStatus = 'idle' | 'requesting' | 'active' | 'error';
+
+/** 'user' = front (selfie) camera; 'environment' = back camera, preferred for photographing documents. */
+export type CameraFacing = 'user' | 'environment';
+
+// A plain facingMode string is a preference, so laptops without a back camera still get their webcam.
+const CONSTRAINTS: Record<CameraFacing, MediaTrackConstraints> = {
+  user: { facingMode: 'user', width: { ideal: 720 }, height: { ideal: 960 } },
+  // Higher resolution so the text on an ID card stays readable.
+  environment: { facingMode: 'environment', width: { ideal: 1920 }, height: { ideal: 1080 } },
+};
 
 function describeCameraError(error: unknown): string {
   const name = error instanceof DOMException ? error.name : '';
@@ -20,13 +30,17 @@ function describeCameraError(error: unknown): string {
   }
 }
 
-export function useCamera() {
+export function useCamera({ facing = 'user' }: { facing?: CameraFacing } = {}) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const [status, setStatus] = useState<CameraStatus>('idle');
   const [error, setError] = useState<string | null>(null);
+  // Bumped by every start/stop/unmount: a getUserMedia call that resolves after a newer request
+  // (or after unmount, e.g. React StrictMode's double mount) stops its own stream immediately.
+  const requestIdRef = useRef(0);
 
   const releaseStream = useCallback(() => {
+    requestIdRef.current += 1;
     streamRef.current?.getTracks().forEach((track) => track.stop());
     streamRef.current = null;
     if (videoRef.current) videoRef.current.srcObject = null;
@@ -46,21 +60,28 @@ export function useCamera() {
       return;
     }
 
+    releaseStream();
+    const requestId = requestIdRef.current;
     setError(null);
     setStatus('requesting');
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: 'user', width: { ideal: 720 }, height: { ideal: 960 } },
+        video: CONSTRAINTS[facing],
         audio: false,
       });
+      if (requestId !== requestIdRef.current) {
+        stream.getTracks().forEach((track) => track.stop());
+        return;
+      }
       streamRef.current = stream;
       setStatus('active');
     } catch (cameraError) {
+      if (requestId !== requestIdRef.current) return;
       releaseStream();
       setError(describeCameraError(cameraError));
       setStatus('error');
     }
-  }, [releaseStream]);
+  }, [facing, releaseStream]);
 
   // The <video> only mounts once the status is active, so attach the stream afterwards.
   useEffect(() => {

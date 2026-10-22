@@ -1,6 +1,7 @@
 // The credential cards (Date of Birth first, then BVN, NIN, Government ID) + Continue button.
-// BVN, NIN and Government ID stay locked until the date of birth is verified, because the
-// backend matches those records against it.
+// BVN, NIN and Government ID stay locked until a date of birth is entered, because the backend
+// matches BVN/NIN records against it. The date only lives in this component's state (rules.md §12):
+// after a reload it must be entered again to verify another credential.
 'use client';
 
 import { useState } from 'react';
@@ -12,7 +13,7 @@ import { ROUTES } from '@/config/routes';
 import { useOnboardingStore } from '@/store/onboarding.store';
 import { useVerificationStatus } from '../hooks/useVerificationStatus';
 import type { CredentialKind, VerificationStatus } from '../types/verification.types';
-import { canLeaveCredentials, isDateOfBirthVerified } from '../utils/progress';
+import { canLeaveCredentials, hasVerifiedIdNumber } from '../utils/progress';
 import { CredentialCard, type CredentialCardState } from './CredentialCard';
 import { DateOfBirthPanel } from './DateOfBirthPanel';
 import { IdNumberPanel } from './IdNumberPanel';
@@ -31,7 +32,7 @@ const CREDENTIAL_COPY: Record<CredentialKind, { title: string; description: stri
 };
 
 const VERIFIED_ANNOUNCEMENTS: Record<CredentialKind, string> = {
-  dateOfBirth: 'Date of birth saved. You can now verify your BVN, NIN or Government ID.',
+  dateOfBirth: 'Date of birth added. You can now verify your BVN, NIN or Government ID.',
   bvn: 'BVN verified.',
   nin: 'NIN verified.',
   governmentId: 'Government ID received.',
@@ -73,11 +74,29 @@ function CalendarIcon() {
   );
 }
 
-function cardState(kind: CredentialKind, status: VerificationStatus): CredentialCardState {
+function cardState(
+  kind: CredentialKind,
+  status: VerificationStatus,
+  dateOfBirth: string | null,
+): CredentialCardState {
+  // A verified BVN/NIN means the backend matched (and saved) the date of birth entered here.
+  if (kind === 'dateOfBirth') {
+    return dateOfBirth && hasVerifiedIdNumber(status) ? 'verified' : 'idle';
+  }
   const value = status[kind];
-  if (value === 'verified' || (kind === 'governmentId' && value === 'pending')) return 'verified';
-  if (kind !== 'dateOfBirth' && !isDateOfBirthVerified(status)) return 'locked';
+  if (value === 'VERIFIED' || (kind === 'governmentId' && value === 'PENDING')) return 'verified';
+  if (!dateOfBirth) return 'locked';
   return 'idle';
+}
+
+/** "1990-03-15" → "15 March 1990" (parsed as a local date, so no timezone shift). */
+function formatDateOfBirth(isoDate: string): string {
+  const [year, month, day] = isoDate.split('-').map(Number);
+  return new Date(year, month - 1, day).toLocaleDateString('en-GB', {
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+  });
 }
 
 function CardsSkeleton() {
@@ -105,12 +124,14 @@ export function CredentialList() {
   // undefined = the user hasn't toggled anything yet, so fall back to the default below.
   const [expanded, setExpanded] = useState<CredentialKind | null | undefined>(undefined);
   const [announcement, setAnnouncement] = useState('');
+  // YYYY-MM-DD, sent with each BVN/NIN lookup. Never stored outside this component.
+  const [dateOfBirth, setDateOfBirth] = useState<string | null>(null);
 
-  // Open the date of birth card by default until it is done: it has to come first.
+  // Open the date of birth card by default until there is one: it has to come first.
   const expandedKind =
     expanded !== undefined
       ? expanded
-      : status && !isDateOfBirthVerified(status)
+      : status && !dateOfBirth && !canLeaveCredentials(status)
         ? 'dateOfBirth'
         : null;
 
@@ -127,10 +148,24 @@ export function CredentialList() {
   const renderPanel = (kind: CredentialKind) => {
     switch (kind) {
       case 'dateOfBirth':
-        return <DateOfBirthPanel onVerified={() => handleVerified('dateOfBirth')} />;
+        return (
+          <DateOfBirthPanel
+            onConfirm={(value) => {
+              setDateOfBirth(value);
+              handleVerified('dateOfBirth');
+            }}
+          />
+        );
       case 'bvn':
       case 'nin':
-        return <IdNumberPanel kind={kind} onVerified={() => handleVerified(kind)} />;
+        // Locked cards are never expanded, so a date of birth is always there when this shows.
+        return dateOfBirth ? (
+          <IdNumberPanel
+            kind={kind}
+            dateOfBirth={dateOfBirth}
+            onVerified={() => handleVerified(kind)}
+          />
+        ) : null;
       case 'governmentId':
         return (
           <div className="flex flex-col gap-3 rounded-tile border-[1.5px] border-border p-4">
@@ -183,10 +218,14 @@ export function CredentialList() {
                   key={kind}
                   id={`credential-${kind}`}
                   title={CREDENTIAL_COPY[kind].title}
-                  description={CREDENTIAL_COPY[kind].description}
+                  description={
+                    kind === 'dateOfBirth' && dateOfBirth
+                      ? formatDateOfBirth(dateOfBirth)
+                      : CREDENTIAL_COPY[kind].description
+                  }
                   icon={kind === 'dateOfBirth' ? <CalendarIcon /> : <PersonIcon />}
-                  state={cardState(kind, status)}
-                  lockedHint="Verify your date of birth first"
+                  state={cardState(kind, status, dateOfBirth)}
+                  lockedHint="Enter your date of birth first"
                   isExpanded={expandedKind === kind}
                   onToggle={() => setExpanded(expandedKind === kind ? null : kind)}
                 >

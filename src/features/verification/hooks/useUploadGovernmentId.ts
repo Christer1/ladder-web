@@ -5,7 +5,7 @@ import type { ApiError } from '@/lib/api/errors';
 import { uploadGovernmentId } from '../api/verification.api';
 import type {
   UploadGovernmentIdRequest,
-  VerifyCredentialResponse,
+  VerificationResultResponse,
 } from '../types/verification.types';
 import { verificationQueryKeys } from './useVerificationStatus';
 
@@ -13,7 +13,7 @@ export function useUploadGovernmentId() {
   const queryClient = useQueryClient();
   const [progress, setProgress] = useState(0);
 
-  const mutation = useMutation<VerifyCredentialResponse, ApiError, UploadGovernmentIdRequest>({
+  const mutation = useMutation<VerificationResultResponse, ApiError, UploadGovernmentIdRequest>({
     mutationFn: (payload) => {
       setProgress(0);
       return uploadGovernmentId(payload, setProgress);

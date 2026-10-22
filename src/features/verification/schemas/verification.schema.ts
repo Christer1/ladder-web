@@ -1,6 +1,6 @@
-// Zod schemas: dateOfBirthSchema (18+), idNumberSchemas.bvn / .nin (11 digits), idUploadSchema (PNG/JPG/PDF, max 5MB).
+// Zod schemas: dateOfBirthSchema (18+), idNumberSchemas.bvn / .nin (11 digits), idUploadSchema (front + back for cards, PNG/JPG/PDF, max 5MB each).
 import { z } from 'zod';
-import type { GovernmentIdType } from '../types/verification.types';
+import type { GovernmentIdType, IdSide } from '../types/verification.types';
 
 /** Minimum age to get a Ladder ID. Confirm with product (rules.md §9). */
 export const MIN_AGE = 18;
@@ -8,13 +8,27 @@ export const ID_NUMBER_LENGTH = 11;
 export const MAX_ID_FILE_BYTES = 5 * 1024 * 1024;
 export const ACCEPTED_ID_FILE_TYPES = ['image/png', 'image/jpeg', 'application/pdf'] as const;
 
+type GovernmentIdOption = {
+  value: GovernmentIdType;
+  label: string;
+  /** Images to collect. Cards need front and back; a passport only its photo page. */
+  sides: readonly IdSide[];
+};
+
 /** Placeholder list until product confirms the accepted IDs (rules.md §2, open question 2). */
-export const GOVERNMENT_ID_OPTIONS: ReadonlyArray<{ value: GovernmentIdType; label: string }> = [
-  { value: 'national-id-card', label: 'National ID Card' },
-  { value: 'international-passport', label: 'International Passport' },
-  { value: 'drivers-licence', label: 'Driver’s Licence' },
-  { value: 'voters-card', label: 'Voter’s Card' },
+export const GOVERNMENT_ID_OPTIONS: readonly GovernmentIdOption[] = [
+  { value: 'national-id-card', label: 'National ID Card', sides: ['front', 'back'] },
+  { value: 'international-passport', label: 'International Passport', sides: ['front'] },
+  { value: 'drivers-licence', label: 'Driver’s Licence', sides: ['front', 'back'] },
+  { value: 'voters-card', label: 'Voter’s Card', sides: ['front', 'back'] },
 ];
+
+/** Sides to collect for an ID type. Before a type is chosen, assume a card (front and back). */
+export function getIdSides(idType: GovernmentIdType | undefined): readonly IdSide[] {
+  return (
+    GOVERNMENT_ID_OPTIONS.find((option) => option.value === idType)?.sides ?? ['front', 'back']
+  );
+}
 
 function ageOn(dateOfBirth: Date, today: Date): number {
   let age = today.getFullYear() - dateOfBirth.getFullYear();
@@ -74,26 +88,40 @@ export const idNumberSchemas = {
 
 export type IdNumberFormValues = z.infer<(typeof idNumberSchemas)['bvn']>;
 
-export const idUploadSchema = z.object({
-  idType: z.enum(
-    GOVERNMENT_ID_OPTIONS.map((option) => option.value) as [
-      GovernmentIdType,
-      ...GovernmentIdType[],
-    ],
-    'Select the type of ID',
-  ),
-  file: z
-    .instanceof(File, { message: 'Upload a clear image of your ID' })
+const idImage = (missingMessage: string) =>
+  z
+    .instanceof(File, { message: missingMessage })
     .refine((file) => (ACCEPTED_ID_FILE_TYPES as readonly string[]).includes(file.type), {
       message: 'Use a PNG, JPG or PDF file',
     })
     .refine((file) => file.size <= MAX_ID_FILE_BYTES, {
       message: 'The file must be 5 MB or smaller',
-    }),
-  isConfirmedValid: z
-    .boolean()
-    .refine((isConfirmed) => isConfirmed, 'Confirm this is a valid government-issued ID'),
-});
+    });
+
+export const idUploadSchema = z
+  .object({
+    idType: z.enum(
+      GOVERNMENT_ID_OPTIONS.map((option) => option.value) as [
+        GovernmentIdType,
+        ...GovernmentIdType[],
+      ],
+      'Select the type of ID',
+    ),
+    front: idImage('Add a photo of the front of your ID'),
+    back: idImage('Add a photo of the back of your ID').optional(),
+    isConfirmedValid: z
+      .boolean()
+      .refine((isConfirmed) => isConfirmed, 'Confirm this is a valid government-issued ID'),
+  })
+  .superRefine((values, ctx) => {
+    if (getIdSides(values.idType).includes('back') && !values.back) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['back'],
+        message: 'Add a photo of the back of your ID',
+      });
+    }
+  });
 
 export type IdUploadFormValues = z.infer<typeof idUploadSchema>;
 

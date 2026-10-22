@@ -7,14 +7,14 @@ export type CredentialType = 'bvn' | 'nin' | 'government-id';
 
 type OnboardingState = {
   email: string | null;
-  /** Seconds until the current OTP expires, as returned by signup/resend. */
-  otpExpiresIn: number | null;
+  /** Seconds until a new OTP can be requested, as returned by signup. */
+  resendAvailableIn: number | null;
   completedSteps: OnboardingStep[];
   selectedCredential: CredentialType | null;
 };
 
 type OnboardingActions = {
-  startSignup: (email: string, otpExpiresIn: number) => void;
+  startSignup: (email: string, resendAvailableIn: number) => void;
   completeStep: (step: OnboardingStep) => void;
   selectCredential: (credential: CredentialType | null) => void;
   reset: () => void;
@@ -22,17 +22,17 @@ type OnboardingActions = {
 
 const initialState: OnboardingState = {
   email: null,
-  otpExpiresIn: null,
+  resendAvailableIn: null,
   completedSteps: [],
   selectedCredential: null,
 };
 
 export const useOnboardingStore = create<OnboardingState & OnboardingActions>()((set) => ({
   ...initialState,
-  startSignup: (email, otpExpiresIn) =>
+  startSignup: (email, resendAvailableIn) =>
     set((state) => ({
       email,
-      otpExpiresIn,
+      resendAvailableIn,
       completedSteps: state.completedSteps.includes('signup')
         ? state.completedSteps
         : [...state.completedSteps, 'signup'],

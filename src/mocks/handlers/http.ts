@@ -1,8 +1,7 @@
 // Envelope helpers shared by the MSW handlers (same shapes as rules.md §8.3).
-import { HttpResponse } from 'msw';
+import { bypass, HttpResponse } from 'msw';
 import { env } from '@/config/env';
-import type { ApiErrorBody, ApiSuccess } from '@/types/api.types';
-import { mockDb } from '../db';
+import type { ApiErrorBody, ApiResponse, ApiSuccess } from '@/types/api.types';
 
 export const url = (path: string) => `${env.apiBaseUrl}${path}`;
 
@@ -13,11 +12,19 @@ export const ok = <T>(data: T, message = 'OK'): Response =>
 export const fail = (status: number, body: Omit<ApiErrorBody, 'success'>): Response =>
   HttpResponse.json<ApiErrorBody>({ success: false, ...body }, { status });
 
-/** Returns a 401 response when there is no session, otherwise null. */
-export function requireSession(): Response | null {
-  if (mockDb.get().hasSession) return null;
-  return fail(401, {
-    message: 'Your session has expired. Please start again.',
-    code: 'UNAUTHORIZED',
-  });
+/**
+ * Sends the request on to ladder-backend (with the session cookie) and lets `extend` add the
+ * mocked fields to a successful response. Errors (401 included) are returned unchanged.
+ */
+export async function passthroughAndExtend<T>(
+  request: Request,
+  extend: (data: T) => T,
+): Promise<Response> {
+  const response = await fetch(bypass(request));
+  const body = (await response.json()) as ApiResponse<T>;
+  if (!body.success) return HttpResponse.json(body, { status: response.status });
+  return HttpResponse.json<ApiSuccess<T>>(
+    { ...body, data: extend(body.data) },
+    { status: response.status },
+  );
 }

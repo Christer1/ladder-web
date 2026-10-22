@@ -1,5 +1,6 @@
 // BVN / NIN input inside a credential card. Submits automatically once all 11 digits are entered,
-// shows the spinner while the lookup runs, and reports field errors inline.
+// together with the confirmed date of birth, shows the spinner while the lookup runs, and reports
+// errors inline (including *_DOB_MISMATCH when the record's date of birth differs).
 'use client';
 
 import { useForm } from 'react-hook-form';
@@ -18,12 +19,14 @@ type IdNumberKind = 'bvn' | 'nin';
 
 type IdNumberPanelProps = {
   kind: IdNumberKind;
+  /** YYYY-MM-DD from the Date of Birth card. The card stays locked until there is one. */
+  dateOfBirth: string;
   onVerified: () => void;
 };
 
 const LABELS: Record<IdNumberKind, string> = { bvn: 'BVN', nin: 'NIN' };
 
-export function IdNumberPanel({ kind, onVerified }: IdNumberPanelProps) {
+export function IdNumberPanel({ kind, dateOfBirth, onVerified }: IdNumberPanelProps) {
   // Both hooks are always called (rules of hooks); only the one for this kind is used.
   const verifyBvn = useVerifyBvn();
   const verifyNin = useVerifyNin();
@@ -44,10 +47,13 @@ export function IdNumberPanel({ kind, onVerified }: IdNumberPanelProps) {
     const options = {
       onSuccess: onVerified,
       onError: (error: ApiError) =>
-        setError('value', { message: error.fieldErrors[kind]?.[0] ?? error.message }),
+        setError('value', {
+          message:
+            error.fieldErrors[kind]?.[0] ?? error.fieldErrors.dateOfBirth?.[0] ?? error.message,
+        }),
     };
-    if (kind === 'bvn') verifyBvn.mutate({ bvn: value }, options);
-    else verifyNin.mutate({ nin: value }, options);
+    if (kind === 'bvn') verifyBvn.mutate({ bvn: value, dateOfBirth }, options);
+    else verifyNin.mutate({ nin: value, dateOfBirth }, options);
   };
 
   const field = register('value');

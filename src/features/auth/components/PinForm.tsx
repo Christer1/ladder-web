@@ -64,12 +64,19 @@ function PinFormContent() {
   });
 
   const onSubmit = (values: PinFormValues) => {
+    const goToCredentials = () => {
+      completeStep('create-pin');
+      router.push(ROUTES.CREDENTIALS);
+    };
+
     createPin.mutate(values, {
-      onSuccess: () => {
-        completeStep('create-pin');
-        router.push(ROUTES.CREDENTIALS);
-      },
+      onSuccess: goToCredentials,
       onError: (error) => {
+        // Came back to this screen after the PIN was saved: nothing to do here any more.
+        if (error.code === 'PIN_ALREADY_SET') {
+          goToCredentials();
+          return;
+        }
         let hasFieldError = false;
         for (const field of PIN_FIELDS) {
           const message = error.fieldErrors[field]?.[0];

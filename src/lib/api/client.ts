@@ -7,7 +7,13 @@ import { useOnboardingStore } from '@/store/onboarding.store';
 import { ENDPOINTS } from './endpoints';
 import { normalizeError } from './errors';
 
-const AUTH_PATHS: readonly string[] = Object.values(ENDPOINTS.auth);
+// Public endpoints answer 401 for wrong credentials, not for an expired session.
+const PUBLIC_AUTH_PATHS: readonly string[] = [
+  ENDPOINTS.auth.signup,
+  ENDPOINTS.auth.verifyOtp,
+  ENDPOINTS.auth.resendOtp,
+  ENDPOINTS.auth.login,
+];
 
 export const apiClient = axios.create({
   baseURL: env.apiBaseUrl,
@@ -29,8 +35,8 @@ apiClient.interceptors.response.use(
     const apiError = normalizeError(error);
     const requestPath = axios.isAxiosError(error) ? error.config?.url : undefined;
 
-    // Expired session on a protected call: start over. Auth endpoints report their own 401s.
-    if (apiError.status === 401 && requestPath && !AUTH_PATHS.includes(requestPath)) {
+    // Expired session on a protected call: start over. Public auth endpoints report their own 401s.
+    if (apiError.status === 401 && requestPath && !PUBLIC_AUTH_PATHS.includes(requestPath)) {
       useOnboardingStore.getState().reset();
       if (typeof window !== 'undefined') window.location.assign(ROUTES.SIGNUP);
     }
