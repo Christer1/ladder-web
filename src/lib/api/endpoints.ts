@@ -1,5 +1,5 @@
 // Every backend URL, grouped by feature. No URL strings anywhere else.
-// Matches ladder-backend (architeture.md §5).
+// Matches ladder-backend (AIUsage.md §5).
 export const ENDPOINTS = {
   auth: {
     signup: '/auth/signup',
