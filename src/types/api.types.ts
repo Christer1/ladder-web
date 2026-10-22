@@ -15,4 +15,5 @@ export type ApiErrorBody = {
   errors?: Record<string, string[]>;
 };
 
+
 export type ApiResponse<T> = ApiSuccess<T> | ApiErrorBody;
