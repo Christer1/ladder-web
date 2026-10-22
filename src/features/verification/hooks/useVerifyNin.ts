@@ -3,13 +3,13 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import type { ApiError } from '@/lib/api/errors';
 import { verifyNin } from '../api/verification.api';
 import type { VerifyNinRequest, VerificationResultResponse } from '../types/verification.types';
-import { verificationQueryKeys } from './useVerificationStatus';
+import { applyVerificationResult } from './useVerificationStatus';
 
 export function useVerifyNin() {
   const queryClient = useQueryClient();
 
   return useMutation<VerificationResultResponse, ApiError, VerifyNinRequest>({
     mutationFn: verifyNin,
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: verificationQueryKeys.status }),
+    onSuccess: (result) => applyVerificationResult(queryClient, 'nin', result),
   });
 }

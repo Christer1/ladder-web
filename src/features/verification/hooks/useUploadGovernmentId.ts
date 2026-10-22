@@ -7,7 +7,7 @@ import type {
   UploadGovernmentIdRequest,
   VerificationResultResponse,
 } from '../types/verification.types';
-import { verificationQueryKeys } from './useVerificationStatus';
+import { applyVerificationResult } from './useVerificationStatus';
 
 export function useUploadGovernmentId() {
   const queryClient = useQueryClient();
@@ -18,7 +18,7 @@ export function useUploadGovernmentId() {
       setProgress(0);
       return uploadGovernmentId(payload, setProgress);
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: verificationQueryKeys.status }),
+    onSuccess: (result) => applyVerificationResult(queryClient, 'governmentId', result),
   });
 
   return { ...mutation, progress };
