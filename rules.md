@@ -229,7 +229,7 @@ export const ENDPOINTS = {
 } as const;
 ```
 
-The contract follows `ladder-backend` (`architeture.md` §5, DTOs in `src/modules/*/dto`). When the backend changes, update the types in `features/*/types` and this table together. The backend validates with `forbidNonWhitelisted`: send exactly the fields below, nothing extra.
+The contract follows `ladder-backend` (`AIUsage.md` §5, DTOs in `src/modules/*/dto`). When the backend changes, update the types in `features/*/types` and this table together. The backend validates with `forbidNonWhitelisted`: send exactly the fields below, nothing extra.
 
 | Method | Path | Body | Returns | Served by |
 |---|---|---|---|---|
