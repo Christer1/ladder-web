@@ -7,6 +7,8 @@
 import { useCallback, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useQueryClient } from '@tanstack/react-query';
+import { ROUTES } from '@/config/routes';
+import { getMe, profileQueryKeys } from '@/features/profile';
 import {
   getResumeRoute,
   getVerificationStatus,
@@ -34,7 +36,16 @@ export function useResumeOnboarding() {
       // Signing in proves the email was verified.
       completeStep('verify-otp');
 
-      router.replace(getResumeRoute(status));
+      const route = getResumeRoute(status);
+      // Load the profile before leaving so it opens complete, without a loading skeleton.
+      if (route === ROUTES.PROFILE) {
+        await queryClient.fetchQuery({
+          queryKey: profileQueryKeys.me,
+          queryFn: getMe,
+          staleTime: 0,
+        });
+      }
+      router.replace(route);
     } catch (resumeError) {
       setError(resumeError as ApiError);
       setIsResuming(false);
