@@ -107,7 +107,7 @@ All thresholds live in `LIVENESS_THRESHOLDS` (`features/verification/utils/liven
 The project is bootstrapped (Next.js 16, Tailwind v4, `cacheComponents` on). Use npm only (switched from pnpm on 2026-10-22); don't add another lockfile.
 
 Dev notes:
-- `next dev` writes `AGENTS.md` into the project. Leave it; it is regenerated anyway.
+- `AGENTS.md` generation is off (`agentRules: false` in `next.config.ts`). Don't commit one.
 - With `cacheComponents`, Next.js keeps previously visited pages mounted but hidden. Tests and scripts must target visible elements only.
 - If newly added Tailwind classes or tokens don't show up in `next dev` (stale Turbopack cache), stop the dev server and start it again. `next build` is the source of truth.
 
