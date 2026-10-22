@@ -147,7 +147,7 @@ export function LoginForm({ initialEmail }: LoginFormProps) {
         </div>
 
         <Button type="submit" disabled={!isValid} isLoading={isBusy} className="mt-1">
-          {isResuming ? 'Opening your account…' : 'Sign in'}
+          Sign in
         </Button>
       </form>
     </>
