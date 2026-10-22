@@ -77,12 +77,17 @@ export function SignupForm() {
 
   const onSubmit = (values: SignupFormValues) => {
     signup.mutate(values, {
-      onSuccess: ({ otpExpiresIn }) => {
+      onSuccess: ({ resendAvailableIn }) => {
         // Only the email goes in the store; the password never leaves the form (rules.md §12).
-        startSignup(values.email, otpExpiresIn);
+        startSignup(values.email, resendAvailableIn);
         router.push(ROUTES.VERIFY_OTP);
       },
       onError: (error) => {
+        // The backend sends no field errors with EMAIL_TAKEN, but it belongs under the email.
+        if (error.code === 'EMAIL_TAKEN') {
+          setError('email', { message: error.message }, { shouldFocus: true });
+          return;
+        }
         let hasFieldError = false;
         for (const field of SIGNUP_FIELDS) {
           const message = error.fieldErrors[field]?.[0];

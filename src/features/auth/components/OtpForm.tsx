@@ -30,10 +30,10 @@ export function OtpForm() {
 
 function OtpFormContent({ email }: { email: string }) {
   const router = useRouter();
-  const otpExpiresIn = useOnboardingStore((state) => state.otpExpiresIn);
+  const resendAvailableIn = useOnboardingStore((state) => state.resendAvailableIn);
   const completeStep = useOnboardingStore((state) => state.completeStep);
   const verifyOtp = useVerifyOtp();
-  const resendOtp = useResendOtp(otpExpiresIn ?? undefined);
+  const resendOtp = useResendOtp(resendAvailableIn ?? undefined);
   const [statusMessage, setStatusMessage] = useState('');
   const errorId = useId();
 

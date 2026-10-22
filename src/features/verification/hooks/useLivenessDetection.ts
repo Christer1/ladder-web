@@ -33,8 +33,27 @@ const CHEEK_B = 454;
 
 let landmarkerPromise: Promise<FaceLandmarker> | null = null;
 
+// MediaPipe's WASM writes routine glog/TFLite chatter ("INFO: Created TensorFlow Lite XNNPACK
+// delegate", "W1021 … gl_context.cc …") to stderr, which lands in console.error/warn and trips
+// the Next.js dev overlay. Drop only those lines; everything else passes through untouched.
+const MEDIAPIPE_LOG = /^(INFO: |[IW]\d{4} \d{2}:\d{2}:\d{2}\.\d+ +\d+ \w+\.cc:\d+\])/;
+let mediaPipeLogsFiltered = false;
+
+function filterMediaPipeLogs() {
+  if (mediaPipeLogsFiltered) return;
+  mediaPipeLogsFiltered = true;
+  for (const level of ['error', 'warn', 'info', 'log'] as const) {
+    const original = console[level].bind(console);
+    console[level] = (...args: unknown[]) => {
+      if (typeof args[0] === 'string' && MEDIAPIPE_LOG.test(args[0])) return;
+      original(...args);
+    };
+  }
+}
+
 /** Loads the model once per page session; retries create no second copy. */
 function loadFaceLandmarker(): Promise<FaceLandmarker> {
+  filterMediaPipeLogs();
   landmarkerPromise ??= (async () => {
     const { FaceLandmarker, FilesetResolver } = await import('@mediapipe/tasks-vision');
     const fileset = await FilesetResolver.forVisionTasks(MEDIAPIPE_WASM_URL);

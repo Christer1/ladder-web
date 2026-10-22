@@ -6,14 +6,11 @@ import { Logo } from '@/components/layout/Logo';
 import { Button } from '@/components/ui';
 import { LadderIdCard } from '@/features/verification';
 import { useMe } from '../hooks/useMe';
-import type { VerifiedItem } from '../types/profile.types';
+import type { VerificationType } from '../types/profile.types';
 
-const ITEM_LABELS: Record<VerifiedItem, string> = {
-  dateOfBirth: 'Date of birth',
-  bvn: 'BVN',
-  nin: 'NIN',
-  governmentId: 'Government ID',
-  liveness: 'Liveness check',
+const TYPE_LABELS: Record<VerificationType, string> = {
+  BVN: 'BVN',
+  NIN: 'NIN',
 };
 
 function CheckBadge() {
@@ -71,16 +68,28 @@ export function ProfileOverview() {
               Verified credentials
             </h2>
             <ul className="mt-3 flex flex-col divide-y divide-border rounded-tile border-[1.5px] border-border">
-              {profile.verifiedItems.map((item) => (
-                <li
-                  key={item}
-                  className="flex items-center gap-3 px-4 py-3.5 text-[15px] text-brand-900"
-                >
+              {profile.dateOfBirth && (
+                <li className="flex items-center gap-3 px-4 py-3.5 text-[15px] text-brand-900">
                   <CheckBadge />
-                  {ITEM_LABELS[item]}
+                  Date of birth
                   <span className="sr-only">verified</span>
                 </li>
-              ))}
+              )}
+              {profile.verifications
+                .filter((verification) => verification.status === 'VERIFIED')
+                .map(({ type, maskedValue }) => (
+                  <li
+                    key={type}
+                    className="flex items-center gap-3 px-4 py-3.5 text-[15px] text-brand-900"
+                  >
+                    <CheckBadge />
+                    {TYPE_LABELS[type]}
+                    <span className="sr-only">verified</span>
+                    {maskedValue && (
+                      <span className="ml-auto text-text-muted tabular-nums">{maskedValue}</span>
+                    )}
+                  </li>
+                ))}
             </ul>
           </>
         )}

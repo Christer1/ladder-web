@@ -1,4 +1,5 @@
-// Verification API functions: verifyDateOfBirth, verifyBvn, verifyNin, uploadGovernmentId, submitLiveness, getVerificationStatus.
+// Verification API functions: verifyBvn, verifyNin, getVerificationStatus (ladder-backend), and
+// uploadGovernmentId, submitLiveness (mock only until the backend serves them).
 import { apiClient } from '@/lib/api/client';
 import { ENDPOINTS } from '@/lib/api/endpoints';
 import type { ApiSuccess } from '@/types/api.types';
@@ -7,9 +8,8 @@ import type {
   SubmitLivenessResponse,
   UploadGovernmentIdRequest,
   VerificationStatus,
+  VerificationResultResponse,
   VerifyBvnRequest,
-  VerifyCredentialResponse,
-  VerifyDateOfBirthRequest,
   VerifyNinRequest,
 } from '../types/verification.types';
 
@@ -21,18 +21,8 @@ export async function getVerificationStatus(): Promise<VerificationStatus> {
   return res.data.data;
 }
 
-export async function verifyDateOfBirth(
-  payload: VerifyDateOfBirthRequest,
-): Promise<VerifyCredentialResponse> {
-  const res = await apiClient.post<ApiSuccess<VerifyCredentialResponse>>(
-    ENDPOINTS.verification.dateOfBirth,
-    payload,
-  );
-  return res.data.data;
-}
-
-export async function verifyBvn(payload: VerifyBvnRequest): Promise<VerifyCredentialResponse> {
-  const res = await apiClient.post<ApiSuccess<VerifyCredentialResponse>>(
+export async function verifyBvn(payload: VerifyBvnRequest): Promise<VerificationResultResponse> {
+  const res = await apiClient.post<ApiSuccess<VerificationResultResponse>>(
     ENDPOINTS.verification.bvn,
     payload,
     { timeout: LOOKUP_TIMEOUT_MS },
@@ -40,8 +30,8 @@ export async function verifyBvn(payload: VerifyBvnRequest): Promise<VerifyCreden
   return res.data.data;
 }
 
-export async function verifyNin(payload: VerifyNinRequest): Promise<VerifyCredentialResponse> {
-  const res = await apiClient.post<ApiSuccess<VerifyCredentialResponse>>(
+export async function verifyNin(payload: VerifyNinRequest): Promise<VerificationResultResponse> {
+  const res = await apiClient.post<ApiSuccess<VerificationResultResponse>>(
     ENDPOINTS.verification.nin,
     payload,
     { timeout: LOOKUP_TIMEOUT_MS },
@@ -50,15 +40,16 @@ export async function verifyNin(payload: VerifyNinRequest): Promise<VerifyCreden
 }
 
 export async function uploadGovernmentId(
-  { idType, file }: UploadGovernmentIdRequest,
+  { idType, front, back }: UploadGovernmentIdRequest,
   onProgress?: (percent: number) => void,
-): Promise<VerifyCredentialResponse> {
+): Promise<VerificationResultResponse> {
   const body = new FormData();
   body.append('idType', idType);
-  body.append('file', file);
+  body.append('front', front);
+  if (back) body.append('back', back);
 
   // No Content-Type header: Axios sets the multipart boundary itself (rules.md §8.7).
-  const res = await apiClient.post<ApiSuccess<VerifyCredentialResponse>>(
+  const res = await apiClient.post<ApiSuccess<VerificationResultResponse>>(
     ENDPOINTS.verification.governmentId,
     body,
     {

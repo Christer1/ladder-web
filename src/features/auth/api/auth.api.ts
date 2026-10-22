@@ -1,10 +1,13 @@
-// Auth API functions: signup, verifyOtp, resendOtp, createPin. Calls lib/api/client only.
+// Auth API functions: signup, verifyOtp, resendOtp, login, createPin, logout. Calls lib/api/client only.
 import { apiClient } from '@/lib/api/client';
 import { ENDPOINTS } from '@/lib/api/endpoints';
 import type { ApiSuccess } from '@/types/api.types';
 import type {
   CreatePinRequest,
   CreatePinResponse,
+  LoginRequest,
+  LoginResponse,
+  LogoutResponse,
   ResendOtpRequest,
   ResendOtpResponse,
   SignupRequest,
@@ -34,10 +37,20 @@ export async function resendOtp(payload: ResendOtpRequest): Promise<ResendOtpRes
   return res.data.data;
 }
 
+export async function login(payload: LoginRequest): Promise<LoginResponse> {
+  const res = await apiClient.post<ApiSuccess<LoginResponse>>(ENDPOINTS.auth.login, payload);
+  return res.data.data;
+}
+
 export async function createPin(payload: CreatePinRequest): Promise<CreatePinResponse> {
   const res = await apiClient.post<ApiSuccess<CreatePinResponse>>(
     ENDPOINTS.auth.createPin,
     payload,
   );
+  return res.data.data;
+}
+
+export async function logout(): Promise<LogoutResponse> {
+  const res = await apiClient.post<ApiSuccess<LogoutResponse>>(ENDPOINTS.auth.logout);
   return res.data.data;
 }

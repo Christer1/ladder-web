@@ -1,5 +1,6 @@
 // Shared FileDropzone. Presentational only: no API calls, no feature imports.
 // Click, keyboard (Enter/Space on the button) or drag-and-drop. Validation is the caller's job.
+// `actions` adds extra buttons (e.g. "Take a photo") in both the empty and the filled state.
 'use client';
 
 import { useEffect, useId, useRef, useState } from 'react';
@@ -14,6 +15,10 @@ type FileDropzoneProps = {
   accept: string;
   title: string;
   description: string;
+  /** Alt text for an image preview. */
+  previewAlt?: string;
+  /** Extra buttons shown next to the built-in ones. */
+  actions?: React.ReactNode;
   error?: string;
   disabled?: boolean;
   className?: string;
@@ -84,6 +89,8 @@ export function FileDropzone({
   accept,
   title,
   description,
+  previewAlt = 'Preview of the selected file',
+  actions,
   error,
   disabled = false,
   className,
@@ -142,7 +149,7 @@ export function FileDropzone({
               // eslint-disable-next-line @next/next/no-img-element -- local object URL, nothing to optimise
               <img
                 src={previewUrl}
-                alt="Preview of the selected ID"
+                alt={previewAlt}
                 className="max-h-28 rounded-input object-contain"
               />
             ) : (
@@ -171,27 +178,31 @@ export function FileDropzone({
               >
                 Remove
               </button>
+              {actions}
             </div>
           </div>
         ) : (
-          <button
-            type="button"
-            onClick={openPicker}
-            disabled={disabled}
-            aria-describedby={error ? `${descriptionId} ${errorId}` : descriptionId}
-            className="flex flex-col items-center rounded-input px-4 py-2"
-          >
-            <span className="text-brand-600">
-              <CloudUploadIcon />
-            </span>
-            <span className="mt-3 text-[15px] font-semibold text-brand-900">{title}</span>
-            <span
-              id={descriptionId}
-              className="mt-2 max-w-[210px] text-[13px] leading-5 text-text-muted"
+          <div className="flex flex-col items-center gap-3">
+            <button
+              type="button"
+              onClick={openPicker}
+              disabled={disabled}
+              aria-describedby={error ? `${descriptionId} ${errorId}` : descriptionId}
+              className="flex flex-col items-center rounded-input px-4 py-2"
             >
-              {description}
-            </span>
-          </button>
+              <span className="text-brand-600">
+                <CloudUploadIcon />
+              </span>
+              <span className="mt-3 text-[15px] font-semibold text-brand-900">{title}</span>
+              <span
+                id={descriptionId}
+                className="mt-2 max-w-[210px] text-[13px] leading-5 text-text-muted"
+              >
+                {description}
+              </span>
+            </button>
+            {actions}
+          </div>
         )}
       </div>
       {error && (
