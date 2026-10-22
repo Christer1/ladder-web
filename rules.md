@@ -10,25 +10,39 @@ Ladder Web is a **responsive web application** (not a mobile app) where a user c
 
 - The designs in `../ladder-screens` are the **mobile breakpoint** of this web app. On small screens the web app must look like those screenshots.
 - Tablet and desktop have no designs; their layouts are defined in §6 (centred column on tablet, split view with a brand panel on desktop). We build mobile-first and keep that framing in one place so it can change without rewriting screens.
-- The backend lives in `../ladder-backend`. It serves auth, BVN/NIN, status and profile; Government ID and liveness are not built there yet and stay on MSW mocks (see §11).
+- The backend lives in `../ladder-backend` and serves **every** endpoint: auth, BVN/NIN, Government ID, liveness, status and profile. It is the single source of onboarding progress (see §11).
 
 ## 2. Scope (v1)
 
 | # | Screen | Route | Design reference (`../ladder-screens/`) |
 |---|--------|-------|------------------------------------------|
 | 1 | Welcome | `/` | `Screenshot 2026-10-21 at 20.41.37.png` |
-| 2 | Create your account (email + password) | `/signup` | `… 20.41.49.png` (the design shows Date of Birth; it is replaced by a Password field, see note below) |
+| 2 | Create your account (email + password + confirm password) | `/signup` | `… 20.41.49.png` (the design shows Date of Birth; it is replaced by Password and Confirm password, see note below) |
 | 3 | Enter the OTP (6 digits, 00:45 resend timer) | `/verify-otp` | `… 20.42.00.png` |
-| 4 | Create your PIN (6 digits + confirm) | `/create-pin` | `… 20.42.11.png` |
+| 4 | ~~Create your PIN~~ | — | `… 20.42.11.png`. **Removed (2026-10-22):** there is no PIN anywhere in the app or the database |
 | 5 | Verify your credentials: **Date of Birth first**, then BVN / NIN / Government ID | `/credentials` | default `… 20.43.54.png`, `… 20.44.38.png` · expanded `… 20.44.03.png` · typing `… 20.44.12.png` · verifying `… 20.44.21.png` · verified `… 20.44.29.png` |
 | 6 | Upload your ID (type select; **front + back** for cards, photo page for passports; upload a file **or take a photo**; PNG/JPG/PDF, max 5 MB each) | `/upload-id` | `… 20.44.45.png` |
 | 7 | Liveness check | `/liveness` | idle `… 20.44.54.png` · camera active `… 20.45.09.png` |
 | 8 | You're Verified + Ladder ID (copy) | `/verified` | `… 20.45.15.png` |
 | 9 | Profile | `/profile` | **not designed**: minimal placeholder (email, Ladder ID card, verified credentials list) so "Go To Profile" has somewhere to go |
+| 10 | Login (email + password) | `/login` | **not designed**: built from the Signup/OTP patterns, see **Returning users** below |
 
-**Flow:** Welcome → Signup → OTP → PIN → Credentials (Date of Birth, then BVN / NIN / Government ID) → (Upload ID if Government ID chosen) → Liveness → Verified → Profile.
+**Flow:** Welcome → Signup → OTP → Credentials (Date of Birth, then BVN / NIN / Government ID) → (Upload ID if Government ID chosen) → Liveness → Verified → Profile.
 
-**Signup change (2026-10-21):** the second signup field is **Password** (with a show/hide toggle and a requirements hint), not Date of Birth. It keeps the Date of Birth field's position, size and left-icon style (a lock icon instead of the calendar). Date of birth is no longer collected at signup.
+**Returning users (2026-10-22, no PIN).** A user who comes back signs in on `/login` with **email + password** and **continues where they stopped**:
+- The last email that signed in on this device is remembered (`features/auth/utils/remembered-account.ts`, localStorage key `ladder:returning-account`, email only) and **pre-filled** on `/login`. Nothing redirects automatically: Welcome shows "Already have an account? Log in".
+- **Resume** (`getResumeRoute` in `features/verification/utils/progress.ts`, used by `useResumeOnboarding` after sign-in and by `RouteGuard`) reads only `GET /verification/status`, so it gives the same answer on any device or browser:
+  - **has a Ladder ID → `/profile`**, always. The Ladder ID means verification is complete (it is issued by the first verified BVN/NIN, or by liveness for a Government ID), even if liveness was never done.
+  - otherwise → **the onboarding page they were last on** (`lastStep`: `/credentials`, `/upload-id` or `/liveness`), if they may still be there;
+  - otherwise → the first step left (`/credentials`, then `/liveness`).
+  - It never passes through `/verify-otp` or any other screen on the way.
+- **Recording the last page:** `RouteGuard` saves the onboarding page a user without a Ladder ID opens (`PUT /verification/last-step`, once per change). `/profile` and `/verified` need a Ladder ID; an unfinished user who opens them is sent to their resume page.
+- An email that was never verified (`EMAIL_NOT_VERIFIED`) gets a new code and continues on `/verify-otp`.
+- An expired session on any protected call sends the user to `/login`.
+- **Sign out** (`/profile`) ends the session and then does a **full page load** to `/login`. Never clear the query cache while a protected page is mounted: it refetches without a session, shows a 401 error and triggers a second redirect (the bug fixed on 2026-10-22).
+- Links: Welcome and Signup have "Already have an account? Log in"; Login has "New to Ladder? Create an account".
+
+**Signup (2026-10-22):** email, **Password** (show/hide, requirements hint) and **Confirm password** (show/hide, must match: "Passwords do not match"; re-checked when the password changes). The backend checks the match too (`PASSWORD_MISMATCH`). Password takes the Date of Birth field's position from the design; date of birth is collected on `/credentials`.
 
 **Date of birth is a credential (2026-10-21).** It is the **first** card on `/credentials`, above BVN, NIN and Government ID, and must be verified before the others unlock:
 - The backend has **no date of birth endpoint** (2026-10-22). The user picks a date and presses **Confirm**; nothing is sent. The date is kept in `CredentialList` state and sent with each BVN/NIN lookup (`{ bvn, dateOfBirth }`). The card then shows the chosen date and can be reopened to change it.
@@ -57,9 +71,10 @@ All thresholds live in `LIVENESS_THRESHOLDS` (`features/verification/utils/liven
 - The upload design shows a single dropzone. The two-sided layout and the camera dialog are not designed (open question 11).
 
 ### Out of scope for now
-- Login for returning users (no design yet; signup now sets a password, so login will be email + password)
+- Login screen design (the screen exists, built from existing patterns; see **Returning users**)
+- Forgot password / reset password
 - Profile screen design (only a minimal placeholder exists)
-- Forgot PIN, account settings, partner/company integrations
+- Account settings, partner/company integrations
 
 ### Open questions (resolve before building the affected screen)
 1. Is one credential (e.g. BVN only) enough to continue, or are several required? **Built as:** date of birth + any one of BVN, NIN or Government ID enables Continue (matches the design).
@@ -101,7 +116,7 @@ Dev notes:
 ```
 src/
 ├── app/            Routes only. A page imports one feature component and renders it. No API calls, no business logic.
-│   ├── (auth)/         signup, verify-otp, create-pin
+│   ├── (auth)/         signup, verify-otp, login
 │   ├── (verification)/ credentials, upload-id, liveness, verified  (guarded)
 │   └── (app)/          profile                                       (guarded)
 ├── features/       One folder per domain: onboarding, auth, verification, profile.
@@ -121,7 +136,7 @@ src/
 │   └── utils/       pure helpers
 ├── store/           Zustand stores
 ├── config/          env.ts (validated env), routes.ts (route constants + step order), liveness.ts (face model / WASM URLs)
-├── mocks/           MSW handlers mirroring the backend contract; db.ts holds mock state; handlers/http.ts the envelope helpers
+├── mocks/           MSW setup; no handlers today (the backend serves everything)
 ├── types/           cross-feature types (API envelope)
 └── styles/          globals.css + tokens
 ```
@@ -198,15 +213,15 @@ export const ENDPOINTS = {
     verifyOtp: '/auth/otp/verify',
     resendOtp: '/auth/otp/resend',
     login: '/auth/login',
-    createPin: '/auth/pin',
     logout: '/auth/logout',
   },
   verification: {
     bvn: '/verification/bvn',
     nin: '/verification/nin',
     status: '/verification/status',
-    governmentId: '/verification/government-id', // mock only
-    liveness: '/verification/liveness', // mock only
+    lastStep: '/verification/last-step',
+    governmentId: '/verification/government-id',
+    liveness: '/verification/liveness',
   },
   profile: {
     me: '/profile/me',
@@ -218,18 +233,18 @@ The contract follows `ladder-backend` (`architeture.md` §5, DTOs in `src/module
 
 | Method | Path | Body | Returns | Served by |
 |---|---|---|---|---|
-| POST | `/auth/signup` | `{ email, password }` | `{ otpExpiresIn, resendAvailableIn }` (seconds; the 00:45 timer uses `resendAvailableIn`). `409 EMAIL_TAKEN` | backend |
+| POST | `/auth/signup` | `{ email, password, confirmPassword }` | `{ otpExpiresIn, resendAvailableIn }` (seconds; the 00:45 timer uses `resendAvailableIn`). `409 EMAIL_TAKEN`, `400 PASSWORD_MISMATCH` (field `confirmPassword`) | backend |
 | POST | `/auth/otp/resend` | `{ email }` | same as signup. `429 OTP_RESEND_TOO_SOON` | backend |
 | POST | `/auth/otp/verify` | `{ email, code }` | `{}`, sets the session cookie. `OTP_INVALID`, `OTP_EXPIRED`, `OTP_LOCKED` | backend |
-| POST | `/auth/login` | `{ email, password }` | `{}`, sets the session cookie. `401 INVALID_CREDENTIALS`, `403 EMAIL_NOT_VERIFIED`. API + hook only, no screen yet | backend |
-| POST | `/auth/pin` | `{ pin, confirmPin }` | `{}`. `PIN_MISMATCH` (field `confirmPin`), `409 PIN_ALREADY_SET` (treated as done) | backend |
-| POST | `/auth/logout` | — | `{}`, clears the cookie. API + hook only | backend |
-| POST | `/verification/bvn` | `{ bvn, dateOfBirth }` (`YYYY-MM-DD`) | `{ status, ladderId }`. `422 BVN_NOT_FOUND` / `BVN_INVALID` / `BVN_DOB_MISMATCH`, `403 PIN_REQUIRED`, `409 ALREADY_VERIFIED` | backend |
+| POST | `/auth/login` | `{ email, password }` | `{}`, sets the session cookie. `401 INVALID_CREDENTIALS`, `403 EMAIL_NOT_VERIFIED` | backend |
+| POST | `/auth/logout` | — | `{}`, clears the cookie. **Sign out** on `/profile` | backend |
+| POST | `/verification/bvn` | `{ bvn, dateOfBirth }` (`YYYY-MM-DD`) | `{ status, ladderId }`. `422 BVN_NOT_FOUND` / `BVN_INVALID` / `BVN_DOB_MISMATCH`, `409 ALREADY_VERIFIED` | backend |
 | POST | `/verification/nin` | `{ nin, dateOfBirth }` | same, with `NIN_*` codes | backend |
-| GET | `/verification/status` | — | `{ bvn, nin, ladderId }`; each step `'NOT_STARTED' \| 'PENDING' \| 'VERIFIED' \| 'FAILED'`. With mocks on, `governmentId` and `liveness` are added | backend (+ mock fields) |
+| PUT | `/verification/last-step` | `{ step }` = `CREDENTIALS` / `UPLOAD_ID` / `LIVENESS` | `{}`. Called by `RouteGuard` (`useSaveLastStep`) | backend |
+| GET | `/verification/status` | — | `{ bvn, nin, governmentId, liveness, ladderId, lastStep }`; each step `'NOT_STARTED' \| 'PENDING' \| 'VERIFIED' \| 'FAILED'`. The only source for resuming and for `RouteGuard` | backend |
 | GET | `/profile/me` | — | `{ id, email, dateOfBirth, ladderId, status, verifications: [{ type, status, maskedValue, verifiedAt }] }` | backend |
-| POST | `/verification/government-id` | `multipart/form-data`: `idType`, `front`, `back` (required for card IDs, omitted for passports) | `{ status, ladderId }`; field errors keyed `front` / `back` | **mock only** |
-| POST | `/verification/liveness` | `multipart/form-data`: `selfie` (JPEG), `challenges` (JSON array, e.g. `["smile","turnLeft","blink"]`) | `{ status, ladderId }` | **mock only** |
+| POST | `/verification/government-id` | `multipart/form-data`: `idType`, `front`, `back` (required for card IDs, omitted for passports) | `{ status, ladderId }`; `FILE_REQUIRED` / `FILE_TYPE_INVALID` with field errors keyed `front` / `back`, `413 FILE_TOO_LARGE`. **Placeholder** on the backend: files are checked, then discarded | backend |
+| POST | `/verification/liveness` | `multipart/form-data`: `selfie` (JPEG), `challenges` (JSON array, e.g. `["smile","turnLeft","blink"]`) | `{ status, ladderId }`. `409 IDENTITY_REQUIRED` before a BVN/NIN/ID. Issues the Ladder ID for Government ID users. **Placeholder**: the selfie is checked, then discarded | backend |
 
 The first verified BVN **or** NIN issues the Ladder ID. Only `VALIDATION_FAILED` (400) carries field errors (keyed by request field); every other error is a `code` + `message`.
 
@@ -275,7 +290,7 @@ export function useVerifyBvn() {
 - `client.ts` response interceptor turns every failure into an `ApiError` (`message`, `code`, `status`, `fieldErrors`) via `normalizeError()`.
 - Field errors are mapped to React Hook Form with `setError`. Other errors show inline under the form or next to the affected card (e.g. the BVN card).
 - Network/timeout errors show a generic retry message. Never show raw server text or stack traces.
-- `401` → clear session state and redirect to `/signup` (or login, once designed). Public auth endpoints (signup, OTP, login) are excluded: their 401 means wrong credentials.
+- `401` → clear session state and redirect to `/login`. Excluded: public auth endpoints (signup, OTP, login), whose 401 means wrong credentials, and logout, which handles its own 401.
 
 ### 8.6 Auth and session
 
@@ -288,7 +303,7 @@ export function useVerifyBvn() {
   - Earlier steps stay reachable so users can go back.
 - `RouteGuard` always keeps its children mounted (hidden until allowed) and shows a spinner or a retry message on top. Never return `null` instead of `{children}` in a layout: Next.js 16 instant-navigation validation fails on dropped segments.
 - Because the guarded layouts can't know a page's tone, guarded pages render their own `ScreenShell` (`/verified` uses `tone="success"`). `(auth)` pages get theirs from the group layout.
-- `(auth)` screens after signup need flow state from the store (email for OTP, `verify-otp` completed for PIN). Without it they redirect to `/signup`.
+- `/verify-otp` needs the email from the store (set by signup, or by sign-in for an unverified email). Without it, it redirects to `/signup`.
 
 ### 8.7 File uploads
 
@@ -300,7 +315,7 @@ export function useVerifyBvn() {
 
 - Each form = Zod schema in `schemas/` + `useForm({ resolver: zodResolver(schema) })`.
 - Continue buttons are **disabled until the form is valid** (matches designs).
-- Input rules: email, a valid email; password, 8–128 characters with at least one letter and one number (hint shown under the field until there is an error; confirm the policy with backend); OTP, 6 digits; PIN, 6 digits, both fields match; BVN, 11 digits; NIN, 11 digits.
+- Input rules: email, a valid email; password, 8–128 characters with at least one letter and one number (hint shown under the field until there is an error; confirm the policy with backend); OTP, 6 digits; confirm password, must match the password; BVN, 11 digits; NIN, 11 digits.
 - Numeric fields use `inputMode="numeric"` and `autoComplete="one-time-code"` for OTP.
 
 ## 10. State rules
@@ -308,7 +323,8 @@ export function useVerifyBvn() {
 | Data | Lives in |
 |---|---|
 | Anything from the server | TanStack Query cache |
-| Flow progress across screens (email, chosen credential, completed steps) | `store/onboarding.store.ts` (Zustand) |
+| Flow progress across screens (email, chosen credential, completed steps) | `store/onboarding.store.ts` (Zustand). Sign-in rebuilds it (`useResumeOnboarding`) |
+| Remembered account (email only), pre-filled on `/login` | localStorage `ladder:returning-account`, via `useRememberedAccount` (`useSyncExternalStore`, `undefined` until hydrated) |
 | Form input | React Hook Form (local to the form) |
 | Confirmed date of birth (sent with BVN/NIN) | `CredentialList` `useState` only |
 | UI toggles (which credential card is open, camera phase, etc.) | component `useState` |
@@ -316,30 +332,21 @@ export function useVerifyBvn() {
 
 ## 11. Mocking
 
-- `NEXT_PUBLIC_USE_MOCKS=true` starts MSW in `app/providers.tsx` (development only). It mocks **only** what `ladder-backend` does not serve yet; everything else always goes to the real backend (run it locally, `pnpm start:dev`, port 4000).
-- Mocked: `POST /verification/government-id`, `POST /verification/liveness`. `GET /verification/status` and `GET /profile/me` are passed through (`passthroughAndExtend` in `handlers/http.ts`, with the session cookie) and get the mocked `governmentId` / `liveness` statuses and a fallback Ladder ID (for users who chose a Government ID, which the backend can't issue one for).
-- Signup, login and logout are passed through but reset the mock state, so one account's mocked steps don't carry over to the next.
-- Mock state (Government ID and liveness statuses, fallback Ladder ID) lives in `src/mocks/db.ts`, mirrored to `sessionStorage`. It must never hold PIN, DOB, BVN, NIN, files or selfies.
-- With mocks off, Government ID and liveness requests fail (404) and `/verified` can't be reached: those steps need the backend first.
-- Test data: BVN/NIN numbers and their dates of birth come from the backend's seeded registry (`pnpm db:seed` in `ladder-backend` prints them). OTPs are emailed through Brevo.
-- Mock test values (also at the top of `verification.handlers.ts`):
-
-| Input | Result |
-|---|---|
-| ID front or back over 5 MB | `FILE_TOO_LARGE` on that side |
-| Card ID without a back image | `BACK_REQUIRED` |
-- When the backend ships one of the mocked endpoints, delete its handler (and its field in `db.ts`) and fix any contract mismatch in **types + this file together**.
+- `ladder-backend` serves every endpoint, so **nothing is mocked** and `src/mocks/handlers/index.ts` is empty. Run the backend locally (`npm run dev`, port 4000).
+- The MSW setup stays for the future: `NEXT_PUBLIC_USE_MOCKS=true` starts it in development. Add a handler only for an endpoint the backend does not have yet, and delete it when the backend ships it.
+- Never keep onboarding progress in the browser (that caused the 2026-10-22 bug where a returning user was sent back to liveness): the backend's `GET /verification/status` is the source of truth.
+- Test data: BVN/NIN numbers and their dates of birth come from the backend's seeded registry (`npm run db:seed` in `ladder-backend` prints them). OTPs are emailed through Brevo.
 
 ## 12. Security and privacy
 
 This app handles identity data. These rules are non-negotiable:
 
-- Never log passwords, PIN, OTP, BVN, NIN, ID images or selfies (no `console.log`, no analytics events, no error-tracker payloads).
-- Never persist them on the client (no localStorage/sessionStorage/IndexedDB, not in Zustand persist).
+- Never log passwords, OTPs, BVN, NIN, ID images or selfies (no `console.log`, no analytics events, no error-tracker payloads).
+- Never persist them on the client (no localStorage/sessionStorage/IndexedDB, not in Zustand persist). The only personal data stored on the device is the remembered **email**, pre-filled on `/login`. Never store the password or session token.
 - Mask BVN/NIN when displayed after submission (e.g. `*******8901`). Currently they are not displayed at all after verification: the card collapses and shows a check.
 - Date of birth is personal data: it is sent to the backend only with BVN/NIN lookups and kept only in the form and `CredentialList` state. Never in Zustand, URLs, query keys or logs.
-- Password and PIN inputs use `type="password"` and `autoComplete="new-password"`. The password show/hide toggle is a real `<button>` with `aria-pressed` and a "Show password" / "Hide password" label.
-- The password is sent only in the signup request body. It is never put in the Zustand store, the URL, query keys or error messages; only the email moves on to the OTP screen.
+- Password inputs use `type="password"`, with `autoComplete="new-password"` on signup and `"current-password"` on login. The password show/hide toggle is a real `<button>` with `aria-pressed` and a "Show password" / "Hide password" label.
+- The password (and its confirmation) is sent only in the signup or login request body. It is never put in the Zustand store, the URL, query keys or error messages; only the email moves on to the OTP screen.
 - Camera access is requested only on `/liveness` (after **Verify Face**) and on `/upload-id` (after **Take a photo**, inside the camera dialog). On both, the stream is stopped right after capture, on cancel/close, on error and on unmount (`useCamera`, which also discards streams from superseded requests). Only frames the user submits leave the device: the liveness selfie, and ID photos the user chose to **Use**.
 - Face analysis runs in the browser on the live video; frames are not stored or sent. Only the final selfie is uploaded. Never log landmark data or blendshape scores.
 - All env vars exposed to the browser are prefixed `NEXT_PUBLIC_` and contain no secrets.
@@ -360,7 +367,7 @@ This app handles identity data. These rules are non-negotiable:
 - [ ] Matches the mobile design at 375px and 390px widths
 - [ ] Matches the tablet (820px) and desktop (1440px) layouts in §6, using ScreenShell
 - [ ] Loading, success and error states handled
-- [ ] Works against MSW mocks; API calls follow §8
+- [ ] Works against the local ladder-backend; API calls follow §8
 - [ ] Form validation follows §9
 - [ ] No sensitive data logged or persisted (§12)
 - [ ] Keyboard and screen-reader usable (§13)

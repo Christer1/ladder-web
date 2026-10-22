@@ -1,4 +1,4 @@
-// Zustand store: email, completed steps, selected credential. Never PIN/BVN/NIN values.
+// Zustand store: email, completed steps, selected credential. Never passwords, OTPs or BVN/NIN values.
 // Not persisted (rules.md §12): a hard refresh starts the flow again.
 import { create } from 'zustand';
 import type { OnboardingStep } from '@/config/routes';

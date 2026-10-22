@@ -4,6 +4,8 @@
 
 import { Logo } from '@/components/layout/Logo';
 import { Button } from '@/components/ui';
+import { ROUTES } from '@/config/routes';
+import { useLogout } from '@/features/auth';
 import { LadderIdCard } from '@/features/verification';
 import { useMe } from '../hooks/useMe';
 import type { VerificationType } from '../types/profile.types';
@@ -11,6 +13,8 @@ import type { VerificationType } from '../types/profile.types';
 const TYPE_LABELS: Record<VerificationType, string> = {
   BVN: 'BVN',
   NIN: 'NIN',
+  GOVERNMENT_ID: 'Government ID',
+  LIVENESS: 'Liveness check',
 };
 
 function CheckBadge() {
@@ -31,6 +35,12 @@ function CheckBadge() {
 
 export function ProfileOverview() {
   const { data: profile, isPending, isError, error, refetch, isRefetching } = useMe();
+  const logout = useLogout();
+
+  // A full page load to /login (not router navigation) so no cached, signed-in data or query
+  // survives to refetch without a session. onSettled: an expired session still ends on /login.
+  const handleSignOut = () =>
+    logout.mutate(undefined, { onSettled: () => window.location.replace(ROUTES.LOGIN) });
 
   return (
     <div className="flex flex-1 flex-col px-7 pt-14 pb-10 lg:px-10">
@@ -91,6 +101,15 @@ export function ProfileOverview() {
                   </li>
                 ))}
             </ul>
+
+            <Button
+              variant="secondary"
+              onClick={handleSignOut}
+              isLoading={logout.isPending}
+              className="mt-10"
+            >
+              Sign out
+            </Button>
           </>
         )}
       </div>

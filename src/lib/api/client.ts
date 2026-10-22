@@ -13,6 +13,8 @@ const PUBLIC_AUTH_PATHS: readonly string[] = [
   ENDPOINTS.auth.verifyOtp,
   ENDPOINTS.auth.resendOtp,
   ENDPOINTS.auth.login,
+  // Sign-out handles its own 401 (an already-expired session still ends on /login).
+  ENDPOINTS.auth.logout,
 ];
 
 export const apiClient = axios.create({
@@ -35,10 +37,12 @@ apiClient.interceptors.response.use(
     const apiError = normalizeError(error);
     const requestPath = axios.isAxiosError(error) ? error.config?.url : undefined;
 
-    // Expired session on a protected call: start over. Public auth endpoints report their own 401s.
+    // Expired session on a protected call: sign in again, then the login screen resumes onboarding. Public auth endpoints report their own 401s.
     if (apiError.status === 401 && requestPath && !PUBLIC_AUTH_PATHS.includes(requestPath)) {
       useOnboardingStore.getState().reset();
-      if (typeof window !== 'undefined') window.location.assign(ROUTES.SIGNUP);
+      if (typeof window !== 'undefined' && window.location.pathname !== ROUTES.LOGIN) {
+        window.location.assign(ROUTES.LOGIN);
+      }
     }
 
     return Promise.reject(apiError);

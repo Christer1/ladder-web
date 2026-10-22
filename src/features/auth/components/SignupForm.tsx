@@ -2,67 +2,25 @@
 'use client';
 
 import { useState } from 'react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Logo } from '@/components/layout/Logo';
-import { Button, Input } from '@/components/ui';
+import { Button, EyeIcon, Input, LockIcon, MailIcon } from '@/components/ui';
 import { LEGAL_LINKS, ROUTES } from '@/config/routes';
 import { useOnboardingStore } from '@/store/onboarding.store';
 import { useSignup } from '../hooks/useSignup';
 import { PASSWORD_HINT, signupSchema, type SignupFormValues } from '../schemas/auth.schema';
 
-const SIGNUP_FIELDS = ['email', 'password'] as const;
-
-function MailIcon() {
-  return (
-    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-      <rect x="3" y="5" width="18" height="14" rx="2" stroke="currentColor" strokeWidth="1.8" />
-      <path d="m3.5 6 8.5 7 8.5-7" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" />
-    </svg>
-  );
-}
-
-function LockIcon() {
-  return (
-    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-      <rect
-        x="4.5"
-        y="10"
-        width="15"
-        height="10.5"
-        rx="2"
-        stroke="currentColor"
-        strokeWidth="1.6"
-      />
-      <path d="M8 10V7.5a4 4 0 0 1 8 0V10" stroke="currentColor" strokeWidth="1.6" />
-      <circle cx="12" cy="15.2" r="1.4" fill="currentColor" />
-    </svg>
-  );
-}
-
-function EyeIcon({ isCrossedOut }: { isCrossedOut: boolean }) {
-  return (
-    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-      <path
-        d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12Z"
-        stroke="currentColor"
-        strokeWidth="1.6"
-        strokeLinejoin="round"
-      />
-      <circle cx="12" cy="12" r="3" stroke="currentColor" strokeWidth="1.6" />
-      {isCrossedOut && (
-        <path d="M4 20 20 4" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
-      )}
-    </svg>
-  );
-}
+const SIGNUP_FIELDS = ['email', 'password', 'confirmPassword'] as const;
 
 export function SignupForm() {
   const router = useRouter();
   const startSignup = useOnboardingStore((state) => state.startSignup);
   const signup = useSignup();
   const [isPasswordVisible, setIsPasswordVisible] = useState(false);
+  const [isConfirmVisible, setIsConfirmVisible] = useState(false);
 
   const {
     register,
@@ -72,7 +30,7 @@ export function SignupForm() {
   } = useForm<SignupFormValues>({
     resolver: zodResolver(signupSchema),
     mode: 'onTouched',
-    defaultValues: { email: '', password: '' },
+    defaultValues: { email: '', password: '', confirmPassword: '' },
   });
 
   const onSubmit = (values: SignupFormValues) => {
@@ -149,7 +107,31 @@ export function SignupForm() {
                 <EyeIcon isCrossedOut={isPasswordVisible} />
               </button>
             }
-            {...register('password')}
+            // Re-check the confirmation whenever the password changes.
+            {...register('password', { deps: ['confirmPassword'] })}
+          />
+
+          <Input
+            label="Confirm password"
+            placeholder="Confirm password"
+            type={isConfirmVisible ? 'text' : 'password'}
+            autoComplete="new-password"
+            autoCapitalize="none"
+            spellCheck={false}
+            leftIcon={<LockIcon />}
+            error={errors.confirmPassword?.message}
+            rightElement={
+              <button
+                type="button"
+                onClick={() => setIsConfirmVisible((isVisible) => !isVisible)}
+                aria-label={isConfirmVisible ? 'Hide confirm password' : 'Show confirm password'}
+                aria-pressed={isConfirmVisible}
+                className="inline-flex size-9 items-center justify-center rounded-full text-text-muted transition-colors hover:text-brand-900"
+              >
+                <EyeIcon isCrossedOut={isConfirmVisible} />
+              </button>
+            }
+            {...register('confirmPassword')}
           />
 
           <div aria-live="polite">
@@ -162,6 +144,13 @@ export function SignupForm() {
             Continue
           </Button>
         </form>
+
+        <p className="mt-6 text-center text-[15px] leading-6 text-text-muted">
+          Already have an account?{' '}
+          <Link href={ROUTES.LOGIN} className="font-semibold text-brand-600 hover:underline">
+            Log in
+          </Link>
+        </p>
       </div>
 
       <p className="mt-auto pt-10 text-center text-[15px] leading-6 text-text-body">

@@ -2,8 +2,8 @@
 export const ROUTES = {
   WELCOME: '/',
   SIGNUP: '/signup',
+  LOGIN: '/login',
   VERIFY_OTP: '/verify-otp',
-  CREATE_PIN: '/create-pin',
   CREDENTIALS: '/credentials',
   UPLOAD_ID: '/upload-id',
   LIVENESS: '/liveness',
@@ -22,7 +22,6 @@ export type Route = (typeof ROUTES)[keyof typeof ROUTES];
 export const ONBOARDING_STEPS = [
   'signup',
   'verify-otp',
-  'create-pin',
   'credentials',
   'upload-id',
   'liveness',

@@ -13,6 +13,7 @@ import { useOnboardingStore } from '@/store/onboarding.store';
 import { useResendOtp } from '../hooks/useResendOtp';
 import { useVerifyOtp } from '../hooks/useVerifyOtp';
 import { OTP_LENGTH, otpSchema, type OtpFormValues } from '../schemas/auth.schema';
+import { rememberAccount } from '../utils/remembered-account';
 import { OtpInput } from './OtpInput';
 
 export function OtpForm() {
@@ -55,7 +56,9 @@ function OtpFormContent({ email }: { email: string }) {
       {
         onSuccess: () => {
           completeStep('verify-otp');
-          router.push(ROUTES.CREATE_PIN);
+          // Next time on this device, the login screen pre-fills the email.
+          rememberAccount(email);
+          router.push(ROUTES.CREDENTIALS);
         },
         onError: (error) => {
           setError('code', {

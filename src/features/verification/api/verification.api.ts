@@ -1,9 +1,10 @@
 // Verification API functions: verifyBvn, verifyNin, getVerificationStatus (ladder-backend), and
-// uploadGovernmentId, submitLiveness (mock only until the backend serves them).
+// uploadGovernmentId, submitLiveness, saveLastStep (all ladder-backend).
 import { apiClient } from '@/lib/api/client';
 import { ENDPOINTS } from '@/lib/api/endpoints';
 import type { ApiSuccess } from '@/types/api.types';
 import type {
+  OnboardingPageStep,
   SubmitLivenessRequest,
   SubmitLivenessResponse,
   UploadGovernmentIdRequest,
@@ -76,4 +77,9 @@ export async function submitLiveness({
     { timeout: 120_000 },
   );
   return res.data.data;
+}
+
+/** Remembers the onboarding page the user is on (so sign-in can return them to it). */
+export async function saveLastStep(step: OnboardingPageStep): Promise<void> {
+  await apiClient.put<ApiSuccess<null>>(ENDPOINTS.verification.lastStep, { step });
 }
