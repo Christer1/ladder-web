@@ -51,23 +51,60 @@ function filterMediaPipeLogs() {
   }
 }
 
-/** Loads the model once per page session; retries create no second copy. */
-function loadFaceLandmarker(): Promise<FaceLandmarker> {
+/** Some browsers (notably Safari) hang on the GPU delegate instead of failing; fall back to CPU. */
+const GPU_INIT_TIMEOUT_MS = 6000;
+/** Upper bound for downloading + starting the model, so the spinner never runs forever. */
+const LOAD_TIMEOUT_MS = 45000;
+
+function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error('timeout')), ms);
+    promise.then(
+      (value) => {
+        clearTimeout(timer);
+        resolve(value);
+      },
+      (error: unknown) => {
+        clearTimeout(timer);
+        reject(error);
+      },
+    );
+  });
+}
+
+async function fetchModel(): Promise<Uint8Array> {
+  const response = await fetch(FACE_LANDMARKER_MODEL_URL);
+  if (!response.ok) throw new Error(`Face model download failed (${response.status})`);
+  return new Uint8Array(await response.arrayBuffer());
+}
+
+/**
+ * Loads the model once per page session; retries create no second copy. Safe to call early
+ * (e.g. on page mount) so the ~17 MB of WASM + model is ready by the time the camera is.
+ */
+export function loadFaceLandmarker(): Promise<FaceLandmarker> {
   filterMediaPipeLogs();
   landmarkerPromise ??= (async () => {
+    // Download the model alongside the WASM instead of after it.
+    const modelPromise = fetchModel();
+    modelPromise.catch(() => {}); // surfaced below; avoid an unhandled rejection meanwhile
     const { FaceLandmarker, FilesetResolver } = await import('@mediapipe/tasks-vision');
     const fileset = await FilesetResolver.forVisionTasks(MEDIAPIPE_WASM_URL);
+    const model = await modelPromise;
     const create = (delegate: 'GPU' | 'CPU') =>
       FaceLandmarker.createFromOptions(fileset, {
-        baseOptions: { modelAssetPath: FACE_LANDMARKER_MODEL_URL, delegate },
+        baseOptions: { modelAssetBuffer: model, delegate },
         runningMode: 'VIDEO',
         // Two, so a second person in the frame can be detected and flagged.
         numFaces: 2,
         outputFaceBlendshapes: true,
       });
+    const gpu = create('GPU');
     try {
-      return await create('GPU');
+      return await withTimeout(gpu, GPU_INIT_TIMEOUT_MS);
     } catch {
+      // A GPU init that finishes after the timeout would otherwise leak.
+      gpu.then((late) => late.close()).catch(() => {});
       return create('CPU');
     }
   })().catch((error: unknown) => {
@@ -166,7 +203,7 @@ export function useLivenessDetection(videoRef: React.RefObject<HTMLVideoElement 
 
       let landmarker: FaceLandmarker;
       try {
-        landmarker = await loadFaceLandmarker();
+        landmarker = await withTimeout(loadFaceLandmarker(), LOAD_TIMEOUT_MS);
       } catch {
         if (runId !== runIdRef.current) return;
         const message = 'We couldn’t start the face check. Check your connection and try again.';

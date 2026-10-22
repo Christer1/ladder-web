@@ -6,7 +6,7 @@
 // the backend / liveness provider still makes the real decision (rules.md §2, open question 3).
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { BackButton } from '@/components/layout/BackButton';
 import { Button, Spinner } from '@/components/ui';
@@ -14,7 +14,7 @@ import { ROUTES } from '@/config/routes';
 import { cn } from '@/lib/utils/cn';
 import { useOnboardingStore } from '@/store/onboarding.store';
 import { useCamera } from '../hooks/useCamera';
-import { useLivenessDetection } from '../hooks/useLivenessDetection';
+import { loadFaceLandmarker, useLivenessDetection } from '../hooks/useLivenessDetection';
 import { useSubmitLiveness } from '../hooks/useSubmitLiveness';
 import type { GuidanceIssue, LivenessChallenge, LivenessState } from '../utils/liveness';
 import { LivenessProgressRing } from './LivenessProgressRing';
@@ -110,6 +110,12 @@ export function LivenessCamera() {
   const [phase, setPhase] = useState<Phase>('idle');
   const [failure, setFailure] = useState<string | null>(null);
 
+  // Start downloading the face model as soon as the page opens, so it's ready by the time the
+  // camera is. Failures are ignored here; start() retries and reports them.
+  useEffect(() => {
+    loadFaceLandmarker().catch(() => {});
+  }, []);
+
   const fail = (message: string) => {
     stopDetection();
     stopCamera();
@@ -157,6 +163,8 @@ export function LivenessCamera() {
     setFailure(null);
     resetDetection();
     setPhase('starting');
+    // No-op if the preload is in flight or done; otherwise retries it alongside the camera.
+    loadFaceLandmarker().catch(() => {});
     await startCamera();
   };
 
