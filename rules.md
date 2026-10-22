@@ -102,9 +102,9 @@ All thresholds live in `LIVENESS_THRESHOLDS` (`features/verification/utils/liven
 | API mocking | MSW |
 | On-device face check | `@mediapipe/tasks-vision` (Face Landmarker), pinned; WASM version in `config/liveness.ts` must match |
 | Lint/format | ESLint (next config) + Prettier |
-| Package manager | pnpm |
+| Package manager | npm (`package-lock.json`) |
 
-The project is bootstrapped (Next.js 16, Tailwind v4, `cacheComponents` on). If pnpm isn't installed globally, use `npx pnpm@10 <command>`; `npm run dev` also works for running scripts, but don't `npm install` (it creates a second, separate dependency tree).
+The project is bootstrapped (Next.js 16, Tailwind v4, `cacheComponents` on). Use npm only (switched from pnpm on 2026-10-22); don't add another lockfile.
 
 Dev notes:
 - `next dev` writes `AGENTS.md` into the project. Leave it; it is regenerated anyway.
@@ -371,4 +371,4 @@ This app handles identity data. These rules are non-negotiable:
 - [ ] Form validation follows §9
 - [ ] No sensitive data logged or persisted (§12)
 - [ ] Keyboard and screen-reader usable (§13)
-- [ ] `pnpm lint` and `pnpm typecheck` pass
+- [ ] `npm run lint` and `npm run typecheck` pass
