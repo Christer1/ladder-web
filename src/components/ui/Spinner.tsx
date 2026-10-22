@@ -1,6 +1,5 @@
 // Loading spinner. Presentational only.
 import { cn } from '@/lib/utils/cn';
-
 type SpinnerProps = {
   className?: string;
   /** Announced to screen readers. Omit when the surrounding element already says what is loading. */
